@@ -10,6 +10,13 @@ class OwnerCog(commands.Cog):
         print('Unloaded Onwer Cog')
 
     @commands.command()
+    async def reset(self, ctx):
+        for cog in ['cogs.owner', 'cogs.curator', 'cogs.bridge']:
+            self.bot.unload_extension(cog)
+            self.bot.load_extension(cog)
+        await ctx.send('Done!')
+
+    @commands.command()
     async def ping(self, ctx):
         await ctx.send('pong')
 
