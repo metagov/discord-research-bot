@@ -1,7 +1,9 @@
 from discord.ext import commands
 
 extensions = [
-    'cogs.owner'
+    'cogs.owner',
+    'cogs.curator',
+    'cogs.bridge'
 ]
 
 bot = commands.Bot(command_prefix='.')
