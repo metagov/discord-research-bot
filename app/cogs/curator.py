@@ -90,18 +90,18 @@ class CuratorCog(commands.Cog):
                     manage_components.create_actionrow(
                         manage_components.create_button(
                             style=ButtonStyle.green,
-                            label='Accept',
+                            label='accept',
                             custom_id=f'yes-{reactor.id}'
                         ),
                         manage_components.create_button(
                             style=ButtonStyle.red,
-                            label='Reject',
+                            label='reject',
                             custom_id=f'no-{reactor.id}'
                         ),
                         manage_components.create_button(
-                            style=ButtonStyle.gray,
-                            label='Join Our Server',
-                            custom_id='join'
+                            style=ButtonStyle.URL,
+                            label='join our server',
+                            url='https://discord.com'
                         )
                     )
                 ]
