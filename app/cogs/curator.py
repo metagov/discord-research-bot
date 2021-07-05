@@ -26,13 +26,25 @@ class CuratorCog(commands.Cog):
         Prefer global event handler over handling the events in the commands
         themselves because if the bot is restarted then the interactions will
         fail.'''
-        # Handle 'Join Our Server' differently since we don't want to delete
-        # the other interactions when it is clicked.
-        if ctx.custom_id is not None and ctx.custom_id == 'join':
-            await ctx.send('🤣')
-            return True
         
-        await ctx.edit_origin(components=[])
+        # really messy way of doing this, let's see if we can find a way to edit componenets
+        await ctx.edit_origin(components=[manage_components.create_actionrow(
+                        manage_components.create_button(
+                            style=ButtonStyle.green,
+                            label='accept',
+                            disabled=True
+                        ),
+                        manage_components.create_button(
+                            style=ButtonStyle.red,
+                            label='reject',
+                            disabled=True
+                        ),
+                        manage_components.create_button(
+                            style=ButtonStyle.URL,
+                            label='join our server',
+                            url='https://discord.com'
+                        )
+                    )])
         if ctx.custom_id is not None and ctx.custom_id.startswith('yes-'):
             reactor: User = await self.bot.fetch_user(int(ctx.custom_id[4:]))
             
