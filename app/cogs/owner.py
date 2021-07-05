@@ -1,4 +1,5 @@
 from discord.ext import commands
+from main import extensions
 
 class OwnerCog(commands.Cog):
 
@@ -9,13 +10,15 @@ class OwnerCog(commands.Cog):
     def cog_unload(self):
         print('Unloaded Onwer Cog')
 
+    @commands.is_owner()
     @commands.command()
     async def reset(self, ctx):
-        for cog in ['cogs.owner', 'cogs.curator', 'cogs.bridge']:
+        for cog in extensions:
             self.bot.unload_extension(cog)
             self.bot.load_extension(cog)
         await ctx.send('Done!')
 
+    @commands.is_owner()
     @commands.command()
     async def ping(self, ctx):
         await ctx.send('pong')

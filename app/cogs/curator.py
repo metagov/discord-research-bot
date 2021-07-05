@@ -1,10 +1,18 @@
-import discord
+from discord.channel import TextChannel
+from discord.colour import Color
 from discord.ext import commands
-from discord_components import ButtonStyle, Button, InteractionType
+from discord.ext.commands.context import Context
+from discord.message import Message
+from discord.raw_models import RawReactionActionEvent
+from discord.user import User
+from discord_slash.context import ComponentContext
+from discord_slash.utils import manage_components
+from discord_slash.model import ButtonStyle
+from discord.embeds import Embed
 
 class CuratorCog(commands.Cog):
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         print('Loaded Curator Cog')
         self.bot = bot
 
@@ -12,93 +20,92 @@ class CuratorCog(commands.Cog):
         print('Unloaded Curator Cog')
     
     @commands.Cog.listener()
-    async def on_message(self, msg):
-        ctx = await self.bot.get_context(msg)
-        # bot won't respond to it's own messages
-        if msg.author == self.bot.user:
-            return False
+    async def on_component(self, ctx: ComponentContext):
+        '''Triggered on any component interaction.
         
-        if msg.channel.id != msg.author.dm_channel.id:
-            return False
-
-        text = msg.content
-        # filters for links to discord messages
-        if text.startswith('https://discord.com/channels/'):
-            try:
-                # extract ids from the url
-                parts = text.split('/')
-                guild_id = int(parts[4])
-                channel_id = int(parts[5])
-                msg_id = int(parts[6])
-            except (ValueError):
-                print('Bad argument')
-                return False
-
-            # attempting to retrieve message from the link
-            guild = self.bot.get_guild(guild_id)
-            if guild:
-                channel = guild.get_channel(channel_id)                    
-                if channel:
-                    try:
-                        linked_msg = await channel.fetch_message(msg_id)
-                        
-                    except discord.errors.Forbidden as error:
-                        if error.code == 50001:
-                            await ctx.send("I couldn't access that channel")
-                            return False
-                else:
-                    await ctx.send("Channel may have been deleted")
-                    return False
-            else:
-                await ctx.send("I couldn't access that server")
-                return False
+        Prefer global event handler over handling the events in the commands
+        themselves because if the bot is restarted then the interactions will
+        fail.'''
+        # Handle 'Join Our Server' differently since we don't want to delete
+        # the other interactions when it is clicked.
+        if ctx.custom_id is not None and ctx.custom_id == 'join':
+            await ctx.send('🤣')
+            return True
+        
+        await ctx.edit_origin(components=[])
+        if ctx.custom_id is not None and ctx.custom_id.startswith('yes-'):
+            reactor: User = await self.bot.fetch_user(int(ctx.custom_id[4:]))
             
-            color = int(int(ctx.author.discriminator) / 9999 * 0xffffff)
-            color = discord.Colour.blue()
-
-            info_embed = discord.Embed(
-                title='Discord Cryptocurrency Research',
-                description='test message',
-                color=color
-            )
-
-            linked_msg_embed=discord.Embed(
-                description=linked_msg.content, 
-                color=color)
-            linked_msg_embed.set_author(
-                name=f"{ctx.author.display_name}#{ctx.author.discriminator}", 
-                url=f"https://discord.com/users/{ctx.author.id}",
-                icon_url=ctx.author.avatar_url
-            )
-            linked_msg_embed.set_footer(
-                text='by pressing accept you consent for your anonymized message to published'
-            )
+            # ...
+            if not reactor.dm_channel:
+                await reactor.create_dm()
+            dm: TextChannel = reactor.dm_channel
             
+            # ...
+            embed: Embed = ctx.origin_message.embeds[0].copy()
+            embed.color = Color.green()
+            embed.set_footer(text='Approved by author for anonymous use.')
+            await dm.send(embed=embed)
 
-            await ctx.send(embed=info_embed)
-            sent_msg = await ctx.send(embed=linked_msg_embed,
-                components=[[
-                    Button(style=ButtonStyle.green, label="accept"),
-                    Button(style=ButtonStyle.red, label="reject"),
-                    Button(style=ButtonStyle.URL, label="join our server", url="https://discord.com"),
-                ]]
-            )
-    
     @commands.Cog.listener()
-    async def on_button_click(self, res):
-        choice = res.component.label
-
-        # if choice == 'accept':
-
-        print(res.component.id)
-        # print(res.component)
-
-        # res.component.disabled(True)
-            
+    async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
+        channel: TextChannel = await self.bot.fetch_channel(payload.channel_id)
+        message: Message = await channel.fetch_message(payload.message_id)
+        reactor: User = await self.bot.fetch_user(payload.user_id)
         
-        await res.respond(
-            type=4, content=f"{res.component.label} pressed"
-        )
+        # Ensure we are not in a DM.
+        if not channel.guild:
+            return False
+
+        # ...
+        if payload is not None and str(payload.emoji) == '⭐':
+            author: User = message.author # Whoever wrote original message.
+
+            # ...
+            if not author.dm_channel:
+                await author.create_dm()
+            dm: TextChannel = author.dm_channel
+
+            # ...
+            embed = Embed(
+                description=message.content,
+                color=Color.blue()
+            )
+
+            embed.set_author(
+                name=f"{author.display_name}#{author.discriminator}", 
+                url=f"https://discord.com/users/{author.id}",
+                icon_url=author.avatar_url
+            )
+            
+            embed.set_footer(
+                text='By pressing accept, you consent for your anonymized ' + \
+                    'message to published.'
+            )
+
+            # ...
+            await dm.send(
+                embed=embed,
+                components=[
+                    manage_components.create_actionrow(
+                        manage_components.create_button(
+                            style=ButtonStyle.green,
+                            label='Accept',
+                            custom_id=f'yes-{reactor.id}'
+                        ),
+                        manage_components.create_button(
+                            style=ButtonStyle.red,
+                            label='Reject',
+                            custom_id=f'no-{reactor.id}'
+                        ),
+                        manage_components.create_button(
+                            style=ButtonStyle.gray,
+                            label='Join Our Server',
+                            custom_id='join'
+                        )
+                    )
+                ]
+            )
 
 def setup(bot):
     bot.add_cog(CuratorCog(bot))
