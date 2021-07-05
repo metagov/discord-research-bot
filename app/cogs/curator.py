@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord_components import ButtonStyle, Button, InteractionType
+import pdb
 
 class CuratorCog(commands.Cog):
 
@@ -18,8 +19,8 @@ class CuratorCog(commands.Cog):
         if msg.author == self.bot.user:
             return False
         
-        if msg.channel.id != msg.author.dm_channel.id:
-            return False
+        # if msg.channel.id != msg.author.dm_channel.id:
+        #     return False
 
         text = msg.content
         # filters for links to discord messages
@@ -83,22 +84,47 @@ class CuratorCog(commands.Cog):
                     Button(style=ButtonStyle.URL, label="join our server", url="https://discord.com"),
                 ]]
             )
-    
+
+    async def get_message(self, guild_id, channel_id, message_id):
+        guild = self.bot.get_guild(guild_id)
+        if not guild: return
+        channel = guild.get_channel(channel_id)
+        if not channel: return
+        message = await channel.fetch_message(message_id)
+        return message
+
     @commands.Cog.listener()
-    async def on_button_click(self, res):
-        choice = res.component.label
+    async def on_raw_reaction_add(self, payload):
+        print(payload.emoji, payload.guild_id, payload.channel_id, payload.message_id)
+        print(payload.member, payload.user_id)
+        msg = await self.get_message(payload.guild_id, payload.channel_id, payload.message_id)
+        ctx = await self.bot.get_context(msg)
+        await ctx.send(msg.content)
 
-        # if choice == 'accept':
+    # @commands.Cog.listener()
+    # async def on_button_click(self, res):
+    #     print(res.raw_data)
+    #     choice = res.component.label
 
-        print(res.component.id)
-        # print(res.component)
+    #     # pdb.set_trace()
 
-        # res.component.disabled(True)
-            
+    #     guild = self.bot.get_guild(int(res.raw_data['d']['guild_id']))
+    #     channel = guild.get_channel(int(res.raw_data['d']['channel_id']))
+    #     msg = await channel.fetch_message(res.raw_data['d']['message']['id'])
+    #     ctx = await self.bot.get_context(msg)
+
+    #     if choice == 'accept':
+    #         await ctx.send(msg.content)
+    #     elif choice == 'reject':
+    #         await ctx.send(msg.content)
+
         
-        await res.respond(
-            type=4, content=f"{res.component.label} pressed"
-        )
+            
+    #     await res.respond(type=6)
+
+        # await res.respond(
+        #     type=4, content=f"{res.component.label} pressed"
+        # )
 
 def setup(bot):
     bot.add_cog(CuratorCog(bot))
