@@ -58,7 +58,7 @@ class CuratorCog(commands.Cog):
             return False
 
         # ...
-        if payload is not None and str(payload.emoji) == '⭐':
+        if payload is not None and str(payload.emoji) == '🔭':
             author: User = message.author # Whoever wrote original message.
 
             # ...
