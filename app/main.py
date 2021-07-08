@@ -4,7 +4,7 @@ from discord_slash import SlashCommand
 extensions = [
     'cogs.owner',
     'cogs.curator',
-    # 'cogs.bridge'
+    'cogs.bridge'
 ]
 
 bot = commands.Bot(command_prefix='.')
