@@ -1,4 +1,5 @@
 app/token.txt
+app/bridges.db
 
 **/__pycache__
 .vscode

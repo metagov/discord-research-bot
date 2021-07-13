@@ -1,130 +1,135 @@
-import discord
+from typing import Text
+from discord import utils
+from discord.channel import TextChannel
+from discord.colour import Color
 from discord.ext import commands
-from discord_components import ButtonStyle, Button, InteractionType
-import pdb
+from discord.ext.commands.context import Context
+from discord.guild import Guild
+from discord.member import Member
+from discord.message import Message
+from discord.raw_models import RawReactionActionEvent
+from discord.user import User
+from discord_slash.context import ComponentContext
+from discord_slash.model import ButtonStyle
+from discord.embeds import Embed
+from discord_slash.utils.manage_components import create_actionrow, create_button
+
 
 class CuratorCog(commands.Cog):
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         print('Loaded Curator Cog')
         self.bot = bot
 
     def cog_unload(self):
         print('Unloaded Curator Cog')
+
+    def build_permission_embed(self, message: Message):
+        '''Builds the embed(ded) for the permission message.'''
+        embed = Embed(
+            description=message.content,
+            color=Color.blue(),
+        )
+
+        author: User = message.author
+
+        embed.set_author(
+            name=f"{author.display_name}#{author.discriminator}", 
+            url=f"https://discord.com/users/{author.id}",
+            icon_url=author.avatar_url
+        )
+
+        embed.set_footer(
+            text='By pressing accept, you consent for your anonymized' + \
+                ' message to be published.'
+        )
+
+        return embed
+
+    def build_permission_action_row(self, curator: User):
+        '''Builds the action row for the permission message.'''
+        return create_actionrow(
+            create_button(
+                custom_id='accept' if not curator else f'accept-{curator.id}',
+                style=ButtonStyle.green,
+                disabled=curator is None,
+                label='accept',
+            ),
+
+            create_button(
+                custom_id='reject' if not curator else f'reject-{curator.id}',
+                style=ButtonStyle.red,
+                disabled=curator is None,
+                label='reject',
+            ),
+
+            create_button(
+                style=ButtonStyle.URL,
+                label='join our server',
+                url='https://discord.com'
+            ),
+        )
+
+    async def begin_curation_process(self, message: Message, curator: User):
+        '''Begins the curation process.'''
+        embed = self.build_permission_embed(message=message)
+        action_row = self.build_permission_action_row(curator=curator)
+        await message.author.send(embed=embed, components=[action_row])
+
+    @commands.command()
+    @commands.has_role('Curator') # TODO: Make this work in DMs.
+    async def curate(self, context: Context, message: Message):
+        '''Begins the curation process.'''
+        await self.begin_curation_process(message, context.author)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
+        '''Triggered when a reaction is added to any message.'''
+        channel: TextChannel = await self.bot.fetch_channel(payload.channel_id)
+
+        # Ensure we are not in a DM.
+        if not channel.guild:
+            return
+
+        message: Message = await channel.fetch_message(payload.message_id)
+        reactor: Member = await channel.guild.fetch_member(payload.user_id)
+
+        # Check for the appropriate emoji.
+        if str(payload.emoji) == '🔭':
+            # Check for the appropriate role.
+            if utils.get(reactor.roles, name='Curator'): # TODO: Same as above.
+                await self.begin_curation_process(message, reactor)
+
+    @commands.Cog.listener()
+    async def on_component(self, context: ComponentContext):
+        '''Triggered on any component interaction.'''
+        if isinstance(context.custom_id, str) and '-' in context.custom_id:
+            # Recover the curator from the custom IDs.
+            curator_id = int(context.custom_id[context.custom_id.find('-') + 1:])
+            curator: User = await self.bot.fetch_user(curator_id)
+
+            # Disable the accept and reject buttons.
+            action_row = self.build_permission_action_row(None)
+            await context.edit_origin(components=[action_row])
+
+            color = Color.blue()
+            footer = ''
+
+            # Handle the 'accept' case.
+            if context.custom_id.startswith('accept'):
+                color = Color.green()
+                footer = 'Approved by author for anonymous use.'
     
-    @commands.Cog.listener()
-    async def on_message(self, msg):
-        ctx = await self.bot.get_context(msg)
-        # bot won't respond to it's own messages
-        if msg.author == self.bot.user:
-            return False
-        
-        # if msg.channel.id != msg.author.dm_channel.id:
-        #     return False
-
-        text = msg.content
-        # filters for links to discord messages
-        if text.startswith('https://discord.com/channels/'):
-            try:
-                # extract ids from the url
-                parts = text.split('/')
-                guild_id = int(parts[4])
-                channel_id = int(parts[5])
-                msg_id = int(parts[6])
-            except (ValueError):
-                print('Bad argument')
-                return False
-
-            # attempting to retrieve message from the link
-            guild = self.bot.get_guild(guild_id)
-            if guild:
-                channel = guild.get_channel(channel_id)                    
-                if channel:
-                    try:
-                        linked_msg = await channel.fetch_message(msg_id)
-                        
-                    except discord.errors.Forbidden as error:
-                        if error.code == 50001:
-                            await ctx.send("I couldn't access that channel")
-                            return False
-                else:
-                    await ctx.send("Channel may have been deleted")
-                    return False
-            else:
-                await ctx.send("I couldn't access that server")
-                return False
+            # Handle the 'reject' case.
+            elif context.custom_id.startswith('reject'):
+                color = Color.red()
+                footer = 'Anonymous use rejected by author.'
             
-            color = int(int(ctx.author.discriminator) / 9999 * 0xffffff)
-            color = discord.Colour.blue()
-
-            info_embed = discord.Embed(
-                title='Discord Cryptocurrency Research',
-                description='test message',
-                color=color
-            )
-
-            linked_msg_embed=discord.Embed(
-                description=linked_msg.content, 
-                color=color)
-            linked_msg_embed.set_author(
-                name=f"{ctx.author.display_name}#{ctx.author.discriminator}", 
-                url=f"https://discord.com/users/{ctx.author.id}",
-                icon_url=ctx.author.avatar_url
-            )
-            linked_msg_embed.set_footer(
-                text='by pressing accept you consent for your anonymized message to published'
-            )
-            
-
-            await ctx.send(embed=info_embed)
-            sent_msg = await ctx.send(embed=linked_msg_embed,
-                components=[[
-                    Button(style=ButtonStyle.green, label="accept"),
-                    Button(style=ButtonStyle.red, label="reject"),
-                    Button(style=ButtonStyle.URL, label="join our server", url="https://discord.com"),
-                ]]
-            )
-
-    async def get_message(self, guild_id, channel_id, message_id):
-        guild = self.bot.get_guild(guild_id)
-        if not guild: return
-        channel = guild.get_channel(channel_id)
-        if not channel: return
-        message = await channel.fetch_message(message_id)
-        return message
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload):
-        print(payload.emoji, payload.guild_id, payload.channel_id, payload.message_id)
-        print(payload.member, payload.user_id)
-        msg = await self.get_message(payload.guild_id, payload.channel_id, payload.message_id)
-        ctx = await self.bot.get_context(msg)
-        await ctx.send(msg.content)
-
-    # @commands.Cog.listener()
-    # async def on_button_click(self, res):
-    #     print(res.raw_data)
-    #     choice = res.component.label
-
-    #     # pdb.set_trace()
-
-    #     guild = self.bot.get_guild(int(res.raw_data['d']['guild_id']))
-    #     channel = guild.get_channel(int(res.raw_data['d']['channel_id']))
-    #     msg = await channel.fetch_message(res.raw_data['d']['message']['id'])
-    #     ctx = await self.bot.get_context(msg)
-
-    #     if choice == 'accept':
-    #         await ctx.send(msg.content)
-    #     elif choice == 'reject':
-    #         await ctx.send(msg.content)
-
-        
-            
-    #     await res.respond(type=6)
-
-        # await res.respond(
-        #     type=4, content=f"{res.component.label} pressed"
-        # )
-
+            # Notify the curator.
+            embed: Embed = context.origin_message.embeds[0].copy()
+            embed.color = color
+            embed.set_footer(text=footer)
+            await curator.send(embed=embed)
+    
 def setup(bot):
     bot.add_cog(CuratorCog(bot))
