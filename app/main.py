@@ -1,11 +1,7 @@
 from discord.ext import commands
 from discord_slash import SlashCommand
 
-extensions = [
-    'cogs.owner',
-    'cogs.curator',
-    'cogs.bridge'
-]
+import core
 
 bot = commands.Bot(command_prefix='.')
 slash = SlashCommand(bot)
@@ -15,7 +11,6 @@ for ext in extensions:
 @bot.event
 async def on_ready():
     '''Called when the client is done preparing the data received from Discord.
-    
     May be called many times when running.'''
     print(f'Logged in as {bot.user.name} ({bot.user.id}) on ' + \
             f'{", ".join([x.name for x in bot.guilds])}')

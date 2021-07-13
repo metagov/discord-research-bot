@@ -1,5 +1,7 @@
+import discord
 from discord.ext import commands
 from main import extensions
+
 
 class OwnerCog(commands.Cog):
 
@@ -18,7 +20,6 @@ class OwnerCog(commands.Cog):
             self.bot.load_extension(cog)
         await ctx.send('Done!')
 
-    @commands.is_owner()
     @commands.command()
     async def ping(self, ctx):
         await ctx.send('pong')
