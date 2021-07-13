@@ -14,7 +14,6 @@ from discord_slash.model import ButtonStyle
 from discord.embeds import Embed
 from discord_slash.utils.manage_components import create_actionrow, create_button
 
-
 class CuratorCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
