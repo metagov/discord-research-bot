@@ -1,3 +1,4 @@
+from main import slash
 from typing import Text
 from discord import utils
 from discord.channel import TextChannel
@@ -13,6 +14,7 @@ from discord_slash.context import ComponentContext
 from discord_slash.model import ButtonStyle
 from discord.embeds import Embed
 from discord_slash.utils.manage_components import create_actionrow, create_button
+from discord_slash.utils.manage_commands import create_option, create_choice
 
 class CuratorCog(commands.Cog):
 
@@ -129,6 +131,29 @@ class CuratorCog(commands.Cog):
             embed.color = color
             embed.set_footer(text=footer)
             await curator.send(embed=embed)
+    
+    @slash.slash(name="setchannel", 
+                guild_ids=[474736509472473088],
+                options=[
+                    create_option(
+                        name="type",
+                        description="Specify a channel to set",
+                        option_type=3,
+                        required=True,
+                        choices=[
+                            create_choice(
+                                name="pending channel",
+                                value="pending"
+                            ),
+                            create_choice(
+                                name="approved channel",
+                                value="approved"
+                            )
+                        ]
+                    )
+                ])
+    async def set_server(ctx, channel: str):
+        await ctx.send(channel)
     
 def setup(bot):
     bot.add_cog(CuratorCog(bot))
