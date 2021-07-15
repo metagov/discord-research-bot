@@ -1,5 +1,6 @@
 from discord.ext import commands
 from discord_slash import SlashCommand
+from utils import PersistentJSON
 import discord
 
 extensions = [
@@ -8,10 +9,15 @@ extensions = [
     'cogs.bridge'
 ]
 
+config_fn = 'config.json'
+
+config = PersistentJSON(config_fn)
+
 bot = commands.Bot(command_prefix='.')
 slash = SlashCommand(bot, sync_commands=True)
 for ext in extensions:
     bot.load_extension(ext)
+
 
 @bot.event
 async def on_ready():

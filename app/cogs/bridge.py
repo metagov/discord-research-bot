@@ -5,7 +5,7 @@ from discord_slash.context import SlashContext
 from discord_slash.utils.manage_commands import create_option
 import discord
 
-GUILD_IDS = [860079798616457227]
+GUILD_IDS = [474736509472473088]
 
 def to_embed(msg: discord.Message) -> discord.Embed:
     '''Turns a message into an embed(ded).'''

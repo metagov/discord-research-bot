@@ -3,9 +3,9 @@ import discord
 from pathlib import Path
 
 class PersistentJSON:
-    def __init__(self, filename):
+    def __init__(self, filename, default_db={}):
         self.filename = filename
-        self.db = {}
+        self.db = default_db
 
         # Creates empty json if file doesn't already exist
         if Path(self.filename).exists():

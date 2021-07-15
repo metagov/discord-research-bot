@@ -11,15 +11,15 @@ from utils import user_to_color
 from discord import utils
 from datetime import datetime
 import discord_slash
-from main import slash # Use this to declare slash commands.
+from main import slash, config
 import os              # For manipulating files.
 import discord
 import json
 
-GUILD_IDS  = [860079798616457227, 474736509472473088] # For slash commands.
+GUILD_IDS  = [474736509472473088] # For slash commands.
 DATA_FNAME = 'curation.json'      # Store all of our data in this file.
 INIT_DATA  = {                    # What is initially stored & used.
-    'guild_id':    860079798616457227,
+    'guild_id':    474736509472473088,
     'pending_id':  862848348087517235,
     'approved_id': 862848298876141568
 }
@@ -86,31 +86,7 @@ def build_permission_action_row(disabled=False):
 class CuratorCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         print('Loaded', self.__class__.__name__)
-        self.bot  = bot
-
-        # Load configuration from disk.
-        try:
-            with open(DATA_FNAME, 'r') as file:
-                self.data = json.load(file)
-            print('  Configuration is', self.data)
-        except JSONDecodeError:
-            # Backup the existing file.
-            print(f'  Error loading {DATA_FNAME}. Backing up and proceeding.')
-            self.data = INIT_DATA
-
-            relocate = f'{DATA_FNAME}-{datetime.utcnow()}'
-            os.rename(DATA_FNAME, relocate)
-
-        except FileNotFoundError:
-            print(f'  Created {DATA_FNAME}.')
-
-            self.data = INIT_DATA
-            self.sync()
-    
-    def sync(self):
-        # Save data to disk.
-        with open(DATA_FNAME, 'w') as file:
-            json.dump(self.data, file, indent=4)
+        self.bot = bot
 
     @commands.command()
     @commands.has_role('Curator') # TODO: Make this work in DMs.
@@ -137,8 +113,8 @@ class CuratorCog(commands.Cog):
                 await self.begin_curation_process(message)
 
     async def begin_curation_process(self, msg: discord.Message):
-        gd: Guild = await self.bot.fetch_guild(self.data['guild_id'])
-        ch: TextChannel = await self.bot.fetch_channel(self.data['pending_id'])
+        gd: Guild = await self.bot.fetch_guild(config['guild_id'])
+        ch: TextChannel = await self.bot.fetch_channel(config['pending_id'])
 
         # Create "ask for permission" button.
         action_row = manage_components.create_actionrow(
@@ -163,7 +139,7 @@ class CuratorCog(commands.Cog):
             askee: discord.User = await self.bot.fetch_user(askee_id)
             embed.set_footer(text='May we quote you in our research?')
             action_row = build_permission_action_row()
-            await askee.send(embed=embed, components=[action_row])
+            await askee.send(embed=embed, components=[action_row, action_row, action_row])
         
         if 'accept' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
@@ -191,8 +167,8 @@ class CuratorCog(commands.Cog):
         
     async def message_approved(self, embed: discord.Embed):
         '''Called when a message should be sent to the approved channel.'''
-        gd: Guild = await self.bot.fetch_guild(self.data['guild_id'])
-        ch: TextChannel = await self.bot.fetch_channel(self.data['approved_id'])
+        gd: Guild = await self.bot.fetch_guild(config['guild_id'])
+        ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
         embed.set_footer(text=EmptyEmbed)
         await ch.send(embed=embed)
 
@@ -202,51 +178,21 @@ class CuratorCog(commands.Cog):
 
     '''Commands to manipulate pending and approved channels.'''
 
-    @commands.group(name='set')
-    async def _set(self, ctx: commands.Context):
-        # Deliberately empty.
-        pass
-
-    @_set.command()
-    async def approved(self, ctx: commands.Context):
-        # Use current channel as approved messages channel.
-        self.data['approved_id'] = ctx.channel.id
-        self.sync()
-        await ctx.message.add_reaction('👍')
-
-    @_set.command()
-    async def pending(self, ctx: commands.Context):
-        # Use current channel as pending messages channel.
-        self.data['pending_id'] = ctx.channel.id
-        self.sync()
-        await ctx.message.add_reaction('👍')
-
-    @_set.command()
-    async def reset(self, ctx: commands.Context):
-        # Reset current configuration.
-        self.data = INIT_DATA
-        self.sync()
-        await ctx.message.add_reaction('👍')
-    
-    '''Their slash command implementations.'''
-
     @cog_ext.cog_subcommand(base='set', name='approved', guild_ids=GUILD_IDS)
     async def _set_approved(self, ctx: SlashContext):
-        self.data['approved_id'] = ctx.channel.id
-        self.sync()
+        config['approved_id'] = ctx.channel.id
         await ctx.send('Done!')
 
     @cog_ext.cog_subcommand(base='set', name='pending', guild_ids=GUILD_IDS)
     async def _set_pending(self, ctx: SlashContext):
-        self.data['pending_id'] = ctx.channel.id
-        self.sync()
+        config['pending_id'] = ctx.channel.id
         await ctx.send('Done!')
     
-    @cog_ext.cog_subcommand(base='set', name='reset', guild_ids=GUILD_IDS)
-    async def _set_reset(self, ctx: SlashContext):
-        self.data = INIT_DATA
-        self.sync()
-        await ctx.send('Done!')
+    # @cog_ext.cog_subcommand(base='set', name='reset', guild_ids=GUILD_IDS)
+    # async def _set_reset(self, ctx: SlashContext):
+    #     self.data = INIT_DATA
+    #     self.sync()
+    #     await ctx.send('Done!')
 
 
 def setup(bot: commands.Bot):
