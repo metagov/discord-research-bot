@@ -16,7 +16,7 @@ import os              # For manipulating files.
 import discord
 import json
 
-GUILD_IDS  = [860079798616457227] # For slash commands.
+GUILD_IDS  = [860079798616457227, 474736509472473088] # For slash commands.
 DATA_FNAME = 'curation.json'      # Store all of our data in this file.
 INIT_DATA  = {                    # What is initially stored & used.
     'guild_id':    860079798616457227,
@@ -49,21 +49,21 @@ def build_permission_action_row(disabled=False):
             custom_id='accept',
             style=ButtonStyle.green,
             disabled=disabled,
-            label='accept'
+            label='yes'
         ),
 
         manage_components.create_button(
             custom_id='anon',
             style=ButtonStyle.gray,
             disabled=disabled,
-            label='accept, anonymously'
+            label='yes, but anonymously'
         ),
 
         manage_components.create_button(
             custom_id='decline',
             style=ButtonStyle.red,
             disabled=disabled,
-            label='decline'
+            label='no'
         ),
 
         manage_components.create_button(
@@ -116,20 +116,8 @@ class CuratorCog(commands.Cog):
     @commands.has_role('Curator') # TODO: Make this work in DMs.
     async def curate(self, ctx: commands.Context, msg: discord.Message):
         # Manually start curation process.
-        gd: Guild = await self.bot.fetch_guild(self.data['guild_id'])
-        ch: TextChannel = await self.bot.fetch_channel(self.data['pending_id'])
+        await self.begin_curation_process(msg)
 
-        # Create "ask for permission" button.
-        action_row = manage_components.create_actionrow(
-            manage_components.create_button(
-                custom_id=f'ask-{msg.author.id}',
-                style=ButtonStyle.green,
-                label='ask for permission'
-            )
-        )
-
-        await ch.send(embed=to_embed(msg), components=[action_row])
-    
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
         # Triggered when a reaction is added to any message.
@@ -146,7 +134,22 @@ class CuratorCog(commands.Cog):
         if str(payload.emoji) == '🔭':
             # Check for the appropriate role.
             if utils.get(reactor.roles, name='Curator'): # TODO: Same as above.
-                await self.begin_curation_process(message, reactor)
+                await self.begin_curation_process(message)
+
+    async def begin_curation_process(self, msg: discord.Message):
+        gd: Guild = await self.bot.fetch_guild(self.data['guild_id'])
+        ch: TextChannel = await self.bot.fetch_channel(self.data['pending_id'])
+
+        # Create "ask for permission" button.
+        action_row = manage_components.create_actionrow(
+            manage_components.create_button(
+                custom_id=f'ask-{msg.author.id}',
+                style=ButtonStyle.green,
+                label='request permission'
+            )
+        )
+
+        await ch.send(embed=to_embed(msg), components=[action_row])
 
     @commands.Cog.listener()
     async def on_component(self, ctx: ComponentContext):
