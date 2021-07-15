@@ -8,7 +8,7 @@ extensions = [
 ]
 
 bot = commands.Bot(command_prefix='.')
-slash = SlashCommand(bot)
+slash = SlashCommand(bot, sync_commands=True)
 for ext in extensions:
     bot.load_extension(ext)
 
