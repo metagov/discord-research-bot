@@ -2,9 +2,11 @@ from json.decoder import JSONDecodeError
 from discord.embeds import EmptyEmbed
 from discord.ext import commands
 from discord import Guild, TextChannel, RawReactionActionEvent, Message, Member
-from discord_slash.context import ComponentContext
+from discord_slash.context import ComponentContext, SlashContext
 from discord_slash.model import ButtonStyle
 from discord_slash.utils import manage_components
+from discord_slash import cog_ext
+from discord_slash.utils.manage_commands import create_choice, create_option
 from utils import user_to_color
 from discord import utils
 from datetime import datetime
@@ -195,6 +197,8 @@ class CuratorCog(commands.Cog):
     async def _curate(self, ctx: discord_slash.SlashContext):
         await ctx.send('pong!')
 
+    '''Commands to manipulate pending and approved channels.'''
+
     @commands.group(name='set')
     async def _set(self, ctx: commands.Context):
         # Deliberately empty.
@@ -221,28 +225,26 @@ class CuratorCog(commands.Cog):
         self.sync()
         await ctx.message.add_reaction('👍')
     
-    # @slash.slash(name="setchannel", 
-    #             guild_ids=[474736509472473088],
-    #             options=[
-    #                 create_option(
-    #                     name="type",
-    #                     description="Specify a channel to set",
-    #                     option_type=3,
-    #                     required=True,
-    #                     choices=[
-    #                         create_choice(
-    #                             name="pending channel",
-    #                             value="pending"
-    #                         ),
-    #                         create_choice(
-    #                             name="approved channel",
-    #                             value="approved"
-    #                         )
-    #                     ]
-    #                 )
-    #             ])
-    # async def set_server(ctx, channel: str):
-    #     await ctx.send(channel)
+    '''Their slash command implementations.'''
+
+    @cog_ext.cog_subcommand(base='set', name='approved', guild_ids=GUILD_IDS)
+    async def _set_approved(self, ctx: SlashContext):
+        self.data['approved_id'] = ctx.channel.id
+        self.sync()
+        await ctx.send('Done!')
+
+    @cog_ext.cog_subcommand(base='set', name='pending', guild_ids=GUILD_IDS)
+    async def _set_pending(self, ctx: SlashContext):
+        self.data['pending_id'] = ctx.channel.id
+        self.sync()
+        await ctx.send('Done!')
+    
+    @cog_ext.cog_subcommand(base='set', name='reset', guild_ids=GUILD_IDS)
+    async def _set_reset(self, ctx: SlashContext):
+        self.data = INIT_DATA
+        self.sync()
+        await ctx.send('Done!')
+
 
 def setup(bot: commands.Bot):
     cog = CuratorCog(bot)
