@@ -23,10 +23,17 @@ class PersistentJSON:
         file.close()
 
     # Internal Python functions allow the object to be treated like a dict.
+    # Integers are converted to strings to preserve precision.
     def __getitem__(self, key):
-        return self.db[key]
+        val = self.db[key]
+        if val.startswith("int-"):
+            val = int(val[4:])
+
+        return val
 
     def __setitem__(self, key, val):
+        if type(val) is int:
+            val = "int-" + str(val)
         self.db[key] = val
         self._save()
     
@@ -38,4 +45,4 @@ class PersistentJSON:
         return str(self.db)
 
 config = PersistentJSON('config.json')
-print(config['guild_ids'])
+# print(config['guild_ids'])
