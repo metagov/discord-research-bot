@@ -1,46 +1,16 @@
-from json.decoder import JSONDecodeError
 from discord.embeds import EmptyEmbed
+from discord.reaction import Reaction
+from discord.utils import get
 from discord.ext import commands
+from config import config
 from discord import Guild, TextChannel, RawReactionActionEvent, Message, Member
 from discord_slash.context import ComponentContext, SlashContext
 from discord_slash.model import ButtonStyle
 from discord_slash.utils import manage_components
 from discord_slash import cog_ext
-from discord_slash.utils.manage_commands import create_choice, create_option
-from utils import user_to_color
+from utils import message_to_embed
 from discord import utils
-from datetime import datetime
-import discord_slash
-from main import slash, config
-import os              # For manipulating files.
 import discord
-import json
-
-GUILD_IDS  = [474736509472473088] # For slash commands.
-DATA_FNAME = 'curation.json'      # Store all of our data in this file.
-INIT_DATA  = {                    # What is initially stored & used.
-    'guild_id':    474736509472473088,
-    'pending_id':  862848348087517235,
-    'approved_id': 862848298876141568
-}
-
-def to_embed(msg: discord.Message) -> discord.Embed:
-    '''Turns a message into an embed(ded).'''
-    embed = discord.Embed(
-        description=msg.content,
-        color=discord.Color.blue(),
-        timestamp=msg.edited_at or msg.created_at
-    )
-
-    author: discord.User = msg.author
-
-    embed.set_author(
-        name=f"{author.display_name}#{author.discriminator}", 
-        url=f"https://discord.com/users/{author.id}",
-        icon_url=author.avatar_url
-    )
-
-    return embed
 
 def build_permission_action_row(disabled=False):
     # Builds the action row for the permission message.
@@ -71,16 +41,6 @@ def build_permission_action_row(disabled=False):
             label='join our server',
             url='https://discord.com'
         )
-        # manage_components.create_select(
-        #     options=[
-        #         create_select_option('yes', value='approve', emoji='👍'),
-        #         create_select_option('yes, anonymously', value='anon', emoji='😎'),
-        #         create_select_option('no',  value='decline', emoji='👎')
-        #     ],
-        #     placeholder='may we quote you in our research?',
-        #     min_values=1,
-        #     max_values=1
-        # )
     )
 
 class CuratorCog(commands.Cog):
@@ -104,6 +64,12 @@ class CuratorCog(commands.Cog):
             return
 
         message: Message = await ch.fetch_message(payload.message_id)
+
+        # Only propagate when the reaction count is now 1.
+        reaction: Reaction = get(message.reactions, emoji=payload.emoji.name)
+        if reaction.count != 1:
+            return
+
         reactor: Member = await ch.guild.fetch_member(payload.user_id)
 
         # Check for the appropriate emoji.
@@ -125,7 +91,7 @@ class CuratorCog(commands.Cog):
             )
         )
 
-        await ch.send(embed=to_embed(msg), components=[action_row])
+        await ch.send(embed=message_to_embed(msg), components=[action_row])
 
     @commands.Cog.listener()
     async def on_component(self, ctx: ComponentContext):
@@ -139,7 +105,7 @@ class CuratorCog(commands.Cog):
             askee: discord.User = await self.bot.fetch_user(askee_id)
             embed.set_footer(text='May we quote you in our research?')
             action_row = build_permission_action_row()
-            await askee.send(embed=embed, components=[action_row, action_row, action_row])
+            await askee.send(embed=embed, components=[action_row])
         
         if 'accept' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
@@ -152,7 +118,7 @@ class CuratorCog(commands.Cog):
             embed.set_author(
                 name=f'anonymous sally', 
                 url='',
-                icon_url=''
+                icon_url='https://i.ytimg.com/vi/LCgQhShov40/maxresdefault.jpg'
             )
 
             # Propagate the anonymized message.
@@ -172,28 +138,19 @@ class CuratorCog(commands.Cog):
         embed.set_footer(text=EmptyEmbed)
         await ch.send(embed=embed)
 
-    @slash.slash(name='curate', guild_ids=GUILD_IDS)
-    async def _curate(self, ctx: discord_slash.SlashContext):
-        await ctx.send('pong!')
-
     '''Commands to manipulate pending and approved channels.'''
 
-    @cog_ext.cog_subcommand(base='set', name='approved', guild_ids=GUILD_IDS)
+    @cog_ext.cog_subcommand(base='set', name='approved',
+        guild_ids=[int(x) for x in config['guild_ids']])
     async def _set_approved(self, ctx: SlashContext):
         config['approved_id'] = ctx.channel.id
         await ctx.send('Done!')
 
-    @cog_ext.cog_subcommand(base='set', name='pending', guild_ids=GUILD_IDS)
+    @cog_ext.cog_subcommand(base='set', name='pending',
+        guild_ids=[int(x) for x in config['guild_ids']])
     async def _set_pending(self, ctx: SlashContext):
         config['pending_id'] = ctx.channel.id
         await ctx.send('Done!')
-    
-    # @cog_ext.cog_subcommand(base='set', name='reset', guild_ids=GUILD_IDS)
-    # async def _set_reset(self, ctx: SlashContext):
-    #     self.data = INIT_DATA
-    #     self.sync()
-    #     await ctx.send('Done!')
-
 
 def setup(bot: commands.Bot):
     cog = CuratorCog(bot)
