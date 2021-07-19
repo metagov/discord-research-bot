@@ -26,12 +26,25 @@ class PersistentJSON:
     # Integers are converted to strings to preserve precision.
     def __getitem__(self, key):
         val = self.db[key]
-        if val.startswith("int-"):
-            val = int(val[4:])
+
+        if type(val) == list:
+            for c, i in enumerate(val):
+                if type(i) is str:
+                    if i.startswith("int-"):
+                        val[c] = int(i[4:])
+
+        if type(val) == str:
+            if val.startswith("int-"):
+                val = int(val[4:])
 
         return val
 
     def __setitem__(self, key, val):
+        if type(val) is list:
+            for c, i in enumerate(val):
+                if type(i) is int:
+                    val[c] = "int-" + str(i)
+
         if type(val) is int:
             val = "int-" + str(val)
         self.db[key] = val
