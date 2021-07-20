@@ -1,3 +1,4 @@
+from typing import Text
 from discord.embeds import EmbedProxy, EmptyEmbed
 from discord.reaction import Reaction
 from discord.utils import get
@@ -14,26 +15,6 @@ from discord import utils
 from tinydb import TinyDB
 import discord
 import re
-
-'''
-Database schema for storing messages.
-{
-    'author': {
-        '_id':  1290581592859,
-        'name': 'Andrew Wiles'
-    },
-    'content':    'message content',
-    'timestamp':  'iso string',
-    'guild': {
-        '_id':  189083261364,
-        'name': 'Bug\'s bunker'
-    },
-    'channel': {
-        '_id': 198657173626,
-        'name': 'awuie129048165'
-    }
-}
-'''
 
 def build_database_entry(user: discord.User, content: str, timestamp: datetime,
     guild: discord.Guild, channel: discord.TextChannel):
@@ -72,9 +53,9 @@ def build_permission_action_row(disabled=False):
 
         manage_components.create_button(
             custom_id='anon',
-            style=ButtonStyle.gray,
+            style=ButtonStyle.blue,
             disabled=disabled,
-            label='yes, but anonymously'
+            label='yes, anonymously'
         ),
 
         manage_components.create_button(
@@ -155,21 +136,34 @@ class CuratorCog(commands.Cog):
             # Ask user for permission.
             askee_id = int(ctx.custom_id[4:])
             askee: discord.User = await self.bot.fetch_user(askee_id)
-            
+
+            embed.add_field(
+                name='Consent Message',
+                value=
+                    """We're asking for permission to quote you in our research.
+                    • Yes you may quote my post and attribute it to my Discord Handle
+                    • You may quote my post anonymously, do not use my Discord Handle or any other identifying information
+                    • No, you may not quote my post in your research
+                    Thanks for helping us understand the future of governance!"""
+            )
+
             action_row = build_permission_action_row()
             await askee.send(embed=embed, components=[action_row])
         
         if 'accept' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
+            embed.remove_field(0) # removing consent message
+
             action_row = build_permission_action_row(disabled=True)
             await ctx.origin_message.edit(components=[action_row])
             await self.send_to_approved(embed)
             
         if 'anon' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
+            embed.remove_field(0) # removing consent message
             embed.set_author(
-                name=f'anonymous', 
-                url='',
+                name=f'anonymous',
+                url=embed.author.url,
                 icon_url='https://i.imgur.com/qbkZFWO.png'
             )
 
@@ -186,6 +180,8 @@ class CuratorCog(commands.Cog):
         await ctx.send('Done!', delete_after=5)
     
     async def send_to_approved(self, embed: discord.Embed):
+        print('Sending to approved!')
+
         text = embed.author.url
         parts = text.split('/')
         guild_id = int(parts[4])
@@ -218,6 +214,9 @@ class CuratorCog(commands.Cog):
             channel=message.channel
         )
         d.insert(entry)
+
+        ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
+        await ch.send(embed=embed)
         
         
     async def message_approved(self, embed: discord.Embed):

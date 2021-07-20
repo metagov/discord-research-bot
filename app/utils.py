@@ -19,7 +19,7 @@ def message_to_embed(msg: discord.Message):
     # Include author's avatar and name.
     embed.set_author(
         name=f"{author.display_name}#{author.discriminator}", 
-        url=f"{msg.jump_url}",
+        url=msg.jump_url,
         icon_url=author.avatar_url
     )
 
