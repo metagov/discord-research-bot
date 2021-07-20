@@ -142,6 +142,8 @@ class CuratorCog(commands.Cog):
             await ctx.origin_message.edit(components=[action_row])
             # Do nothing else, they have declined.
         
+        await ctx.send('Done!', delete_after=5)
+        
     async def message_approved(self, embed: discord.Embed):
         '''Called when a message should be sent to the approved channel.'''
         # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
