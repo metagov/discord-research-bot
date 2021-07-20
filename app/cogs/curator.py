@@ -127,9 +127,9 @@ class CuratorCog(commands.Cog):
         if 'anon' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
             embed.set_author(
-                name=f'anonymous sally', 
+                name=f'anonymous', 
                 url='',
-                icon_url='https://i.ytimg.com/vi/LCgQhShov40/maxresdefault.jpg'
+                icon_url='https://i.imgur.com/qbkZFWO.png'
             )
 
             # Propagate the anonymized message.
