@@ -3,6 +3,7 @@ app/bridges.db
 app/curation.json
 app/config.json
 app/messages.db
+app/messages.json
 
 **/__pycache__
 .vscode

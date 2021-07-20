@@ -1,4 +1,4 @@
-from discord.embeds import EmptyEmbed
+from discord.embeds import EmbedProxy, EmptyEmbed
 from discord.reaction import Reaction
 from discord.utils import get
 from discord.ext import commands
@@ -14,14 +14,25 @@ from tinydb import TinyDB
 import discord
 import dataset
 
-def on_message_approved(embed: discord.Embed):
-    # Called when a message makes it all the way through the curation process.
-    # d = dataset.connect('sqlite:///messages.db')
-    # d['messages'].insert(dict(
-    #     author=embed.author.name,
-    #     content=embed.description
-    # ))
-    pass
+'''
+Database schema for storing messages.
+{
+    'author': {
+        '_id':  1290581592859,
+        'name': 'Andrew Wiles'
+    }
+    'content':    'message content',
+    'timestamp':  'iso string',
+    'guild': {
+        '_id':  189083261364,
+        'name': 'Bug\'s bunker'
+    },
+    'channel': {
+        '_id': 198657173626,
+        'name': 'awuie129048165'
+    }
+}
+'''
 
 def build_permission_action_row(disabled=False):
     # Builds the action row for the permission message.
@@ -114,7 +125,7 @@ class CuratorCog(commands.Cog):
             # Ask user for permission.
             askee_id = int(ctx.custom_id[4:])
             askee: discord.User = await self.bot.fetch_user(askee_id)
-            embed.set_footer(text='May we quote you in our research?')
+            # embed.set_footer(text='May we quote you in our research?')
             action_row = build_permission_action_row()
             await askee.send(embed=embed, components=[action_row])
         
@@ -143,13 +154,47 @@ class CuratorCog(commands.Cog):
             # Do nothing else, they have declined.
         
         await ctx.send('Done!', delete_after=5)
+    
+    async def on_message_approved(self, embed: discord.Embed):
+        d = TinyDB('messages.json')
+
+        # Find the original message link.
+        message: discord.Message = None
+        for field in embed.fields:
+            if field.value.startswith('[Jump to message]'):
+                text = field.value[18:-1]
+                parts = text.split('/')
+                guild_id = int(parts[4])
+                channel_id = int(parts[5])
+                msg_id = int(parts[6])
+
+                # attempting to retrieve message from the link
+                guild = await self.bot.fetch_guild(guild_id)
+                if guild:
+                    channel = guild.get_channel(channel_id)                    
+                    if channel:
+                        try:
+                            message = await channel.fetch_message(msg_id)
+                        except discord.errors.Forbidden as e:
+                            if e.code == 50001:
+                                print("I couldn't access that channel")
+                    else:
+                        print("Channel may have been deleted")
+                else:
+                    print("I couldn't access that server")
+
+        d.insert({
+
+            'content': message.content
+        })
+        
         
     async def message_approved(self, embed: discord.Embed):
         '''Called when a message should be sent to the approved channel.'''
         # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
         ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
-        embed.set_footer(text=EmptyEmbed)
-        on_message_approved(embed)
+        # embed.set_footer(text=EmptyEmbed)
+        await self.on_message_approved(embed)
         await ch.send(embed=embed)
 
     '''Commands to manipulate pending and approved channels.'''

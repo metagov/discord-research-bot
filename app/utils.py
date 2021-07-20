@@ -24,6 +24,15 @@ def message_to_embed(msg: discord.Message):
     )
 
     # Put guild and channel name in the footer.
-    embed.set_footer(text=f'{msg.guild.name} - #{msg.channel.name}')
+    # embed.set_footer(text=f'{msg.guild.name} - #{msg.channel.name}')
+
+    # Link the original message in the footer.
+    # embed.set_footer(text=')
+
+    # Link the original message in a field.
+    embed.add_field(
+        name='Original',
+        value=f'[Jump to message]({msg.jump_url})'
+    )
 
     return embed
