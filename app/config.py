@@ -2,9 +2,9 @@ from pathlib import Path
 import json
 
 class PersistentJSON:
-    def __init__(self, filename, default_db={}):
+    def __init__(self, filename, default={}):
         self.filename = filename
-        self.db = default_db
+        self.db = default
 
         # Creates empty json if file doesn't already exist.
         if Path(self.filename).exists():
@@ -50,6 +50,12 @@ class PersistentJSON:
         self.db[key] = val
         self._save()
     
+    def get(self, key, defval=None):
+        try:
+            return self[key]
+        except KeyError as e:
+            return defval
+
     # Object represented as a string of the dictionary.
     def __repr__(self):
         return str(self.db)
@@ -60,10 +66,7 @@ class PersistentJSON:
     def __iter__(self):
         yield from self.db
 
-config = PersistentJSON('config.json', default_db={
+config = PersistentJSON('config.json', default={
     'token': 'INSERT TOKEN HERE',
-    'guild_ids': [
-        'INSERT GUILD ID HERE',
-        'INSERT GUILD ID HERE'
-    ]
+    'guild_ids': []
 })
