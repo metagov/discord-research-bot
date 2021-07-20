@@ -9,10 +9,11 @@ from discord_slash.model import ButtonStyle
 from discord_slash.utils import manage_components
 from discord_slash import cog_ext
 from utils import message_to_embed
+from datetime import datetime
 from discord import utils
 from tinydb import TinyDB
 import discord
-import dataset
+import re
 
 '''
 Database schema for storing messages.
@@ -20,7 +21,7 @@ Database schema for storing messages.
     'author': {
         '_id':  1290581592859,
         'name': 'Andrew Wiles'
-    }
+    },
     'content':    'message content',
     'timestamp':  'iso string',
     'guild': {
@@ -33,6 +34,31 @@ Database schema for storing messages.
     }
 }
 '''
+
+def build_database_entry(user: discord.User, content: str, timestamp: datetime,
+    guild: discord.Guild, channel: discord.TextChannel):
+    '''Returns a dictionary to be inserted into the database.'''
+    entry = {
+        'content': content,
+        'timestamp': timestamp.isoformat(),
+        'guild': {
+            '_id': guild.id,
+            'name': guild.name
+        },
+        'channel': {
+            '_id': channel.id,
+            'name': channel.name
+        }
+    }
+
+    # Handle the non-anonymous case.
+    if user:
+        entry['author'] = {
+            '_id': user.id,
+            'name': user.name
+        }
+    
+    return entry
 
 def build_permission_action_row(disabled=False):
     # Builds the action row for the permission message.
@@ -74,7 +100,7 @@ class CuratorCog(commands.Cog):
     @commands.has_role('Curator') # TODO: Make this work in DMs.
     async def curate(self, ctx: commands.Context, msg: discord.Message):
         # Manually start curation process.
-        await self.begin_curation_process(msg)
+        await self.send_to_pending(msg)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
@@ -98,10 +124,13 @@ class CuratorCog(commands.Cog):
         if str(payload.emoji) == '🔭':
             # Check for the appropriate role.
             if utils.get(reactor.roles, name='Curator'): # TODO: Same as above.
-                await self.begin_curation_process(message)
+                await self.send_to_pending(message)
 
-    async def begin_curation_process(self, msg: discord.Message):
-        # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
+    async def send_to_pending(self, msg: discord.Message):
+        if 'pending_id' not in config:
+            print('pending_id is not set in the config!')
+            return
+
         ch: TextChannel = await self.bot.fetch_channel(config['pending_id'])
 
         # Create "ask for permission" button.
@@ -114,6 +143,7 @@ class CuratorCog(commands.Cog):
         )
 
         await ch.send(embed=message_to_embed(msg), components=[action_row])
+        # Go to on_component for the next step.
 
     @commands.Cog.listener()
     async def on_component(self, ctx: ComponentContext):
@@ -125,7 +155,7 @@ class CuratorCog(commands.Cog):
             # Ask user for permission.
             askee_id = int(ctx.custom_id[4:])
             askee: discord.User = await self.bot.fetch_user(askee_id)
-            # embed.set_footer(text='May we quote you in our research?')
+            
             action_row = build_permission_action_row()
             await askee.send(embed=embed, components=[action_row])
         
@@ -133,7 +163,7 @@ class CuratorCog(commands.Cog):
             embed: discord.Embed = ctx.origin_message.embeds[0]
             action_row = build_permission_action_row(disabled=True)
             await ctx.origin_message.edit(components=[action_row])
-            await self.message_approved(embed)
+            await self.send_to_approved(embed)
             
         if 'anon' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
@@ -146,7 +176,7 @@ class CuratorCog(commands.Cog):
             # Propagate the anonymized message.
             action_row = build_permission_action_row(disabled=True)
             await ctx.origin_message.edit(components=[action_row])
-            await self.message_approved(embed)
+            await self.send_to_approved(embed)
         
         if 'decline' == ctx.custom_id:
             action_row = build_permission_action_row(disabled=True)
@@ -155,38 +185,39 @@ class CuratorCog(commands.Cog):
         
         await ctx.send('Done!', delete_after=5)
     
-    async def on_message_approved(self, embed: discord.Embed):
-        d = TinyDB('messages.json')
+    async def send_to_approved(self, embed: discord.Embed):
+        text = embed.author.url
+        parts = text.split('/')
+        guild_id = int(parts[4])
+        channel_id = int(parts[5])
+        msg_id = int(parts[6])
 
-        # Find the original message link.
+        # Attempting to retrieve the message link.
         message: discord.Message = None
-        for field in embed.fields:
-            if field.value.startswith('[Jump to message]'):
-                text = field.value[18:-1]
-                parts = text.split('/')
-                guild_id = int(parts[4])
-                channel_id = int(parts[5])
-                msg_id = int(parts[6])
+        guild = await self.bot.fetch_guild(guild_id)
+        if guild:
+            channel = await self.bot.fetch_channel(channel_id)                    
+            if channel:
+                try:
+                    message = await channel.fetch_message(msg_id)
+                except discord.errors.Forbidden as e:
+                    if e.code == 50001:
+                        print("I couldn't access that channel")
+            else:
+                print("Channel may have been deleted")
+        else:
+            print("I couldn't access that server")
 
-                # attempting to retrieve message from the link
-                guild = await self.bot.fetch_guild(guild_id)
-                if guild:
-                    channel = guild.get_channel(channel_id)                    
-                    if channel:
-                        try:
-                            message = await channel.fetch_message(msg_id)
-                        except discord.errors.Forbidden as e:
-                            if e.code == 50001:
-                                print("I couldn't access that channel")
-                    else:
-                        print("Channel may have been deleted")
-                else:
-                    print("I couldn't access that server")
-
-        d.insert({
-
-            'content': message.content
-        })
+        # Insert into database.
+        d = TinyDB('messages.json', indent=4)
+        entry = build_database_entry(
+            user=None if embed.author.name == 'anonymous' else message.author,
+            content=message.content,
+            timestamp=message.edited_at or message.created_at,
+            guild=message.guild,
+            channel=message.channel
+        )
+        d.insert(entry)
         
         
     async def message_approved(self, embed: discord.Embed):
