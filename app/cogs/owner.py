@@ -7,9 +7,6 @@ class OwnerCog(commands.Cog):
         print('Loaded Owner Cog')
         self.bot = bot
 
-    def cog_unload(self):
-        print('Unloaded Onwer Cog')
-
     @commands.is_owner()
     @commands.command()
     async def reset(self, ctx):

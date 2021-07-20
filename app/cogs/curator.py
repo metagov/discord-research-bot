@@ -1,134 +1,246 @@
 from typing import Text
-from discord import utils
-from discord.channel import TextChannel
-from discord.colour import Color
+from discord.embeds import EmbedProxy, EmptyEmbed
+from discord.reaction import Reaction
+from discord.utils import get
 from discord.ext import commands
-from discord.ext.commands.context import Context
-from discord.guild import Guild
-from discord.member import Member
-from discord.message import Message
-from discord.raw_models import RawReactionActionEvent
-from discord.user import User
-from discord_slash.context import ComponentContext
+from config import config
+from discord import Guild, TextChannel, RawReactionActionEvent, Message, Member
+from discord_slash.context import ComponentContext, SlashContext
 from discord_slash.model import ButtonStyle
-from discord.embeds import Embed
-from discord_slash.utils.manage_components import create_actionrow, create_button
+from discord_slash.utils import manage_components
+from discord_slash import cog_ext
+from utils import message_to_embed
+from datetime import datetime
+from discord import utils
+from tinydb import TinyDB
+import discord
+import re
+
+def build_database_entry(user: discord.User, content: str, timestamp: datetime,
+    guild: discord.Guild, channel: discord.TextChannel):
+    '''Returns a dictionary to be inserted into the database.'''
+    entry = {
+        'content': content,
+        'timestamp': timestamp.isoformat(),
+        'guild': {
+            '_id': guild.id,
+            'name': guild.name
+        },
+        'channel': {
+            '_id': channel.id,
+            'name': channel.name
+        }
+    }
+
+    # Handle the non-anonymous case.
+    if user:
+        entry['author'] = {
+            '_id': user.id,
+            'name': user.name
+        }
+    
+    return entry
+
+def build_permission_action_row(disabled=False):
+    # Builds the action row for the permission message.
+    return manage_components.create_actionrow(
+        manage_components.create_button(
+            custom_id='accept',
+            style=ButtonStyle.green,
+            disabled=disabled,
+            label='yes'
+        ),
+
+        manage_components.create_button(
+            custom_id='anon',
+            style=ButtonStyle.blue,
+            disabled=disabled,
+            label='yes, anonymously'
+        ),
+
+        manage_components.create_button(
+            custom_id='decline',
+            style=ButtonStyle.red,
+            disabled=disabled,
+            label='no'
+        ),
+
+        manage_components.create_button(
+            style=ButtonStyle.URL,
+            label='join our server',
+            url='https://discord.com'
+        )
+    )
 
 class CuratorCog(commands.Cog):
-
     def __init__(self, bot: commands.Bot):
-        print('Loaded Curator Cog')
+        print('Loaded', self.__class__.__name__)
         self.bot = bot
-
-    def cog_unload(self):
-        print('Unloaded Curator Cog')
-
-    def build_permission_embed(self, message: Message):
-        '''Builds the embed(ded) for the permission message.'''
-        embed = Embed(
-            description=message.content,
-            color=Color.blue(),
-        )
-
-        author: User = message.author
-
-        embed.set_author(
-            name=f"{author.display_name}#{author.discriminator}", 
-            url=f"https://discord.com/users/{author.id}",
-            icon_url=author.avatar_url
-        )
-
-        embed.set_footer(
-            text='By pressing accept, you consent for your anonymized' + \
-                ' message to be published.'
-        )
-
-        return embed
-
-    def build_permission_action_row(self, curator: User):
-        '''Builds the action row for the permission message.'''
-        return create_actionrow(
-            create_button(
-                custom_id='accept' if not curator else f'accept-{curator.id}',
-                style=ButtonStyle.green,
-                disabled=curator is None,
-                label='accept',
-            ),
-
-            create_button(
-                custom_id='reject' if not curator else f'reject-{curator.id}',
-                style=ButtonStyle.red,
-                disabled=curator is None,
-                label='reject',
-            ),
-
-            create_button(
-                style=ButtonStyle.URL,
-                label='join our server',
-                url='https://discord.com'
-            ),
-        )
-
-    async def begin_curation_process(self, message: Message, curator: User):
-        '''Begins the curation process.'''
-        embed = self.build_permission_embed(message=message)
-        action_row = self.build_permission_action_row(curator=curator)
-        await message.author.send(embed=embed, components=[action_row])
 
     @commands.command()
     @commands.has_role('Curator') # TODO: Make this work in DMs.
-    async def curate(self, context: Context, message: Message):
-        '''Begins the curation process.'''
-        await self.begin_curation_process(message, context.author)
+    async def curate(self, ctx: commands.Context, msg: discord.Message):
+        # Manually start curation process.
+        await self.send_to_pending(msg)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
-        '''Triggered when a reaction is added to any message.'''
-        channel: TextChannel = await self.bot.fetch_channel(payload.channel_id)
+        # Triggered when a reaction is added to any message.
+        ch: TextChannel = await self.bot.fetch_channel(payload.channel_id)
 
         # Ensure we are not in a DM.
-        if not channel.guild:
+        if not ch.guild:
             return
 
-        message: Message = await channel.fetch_message(payload.message_id)
-        reactor: Member = await channel.guild.fetch_member(payload.user_id)
+        message: Message = await ch.fetch_message(payload.message_id)
+
+        # Only propagate when the reaction count is now 1.
+        reaction: Reaction = get(message.reactions, emoji=payload.emoji.name)
+        if reaction.count != 1:
+            return
+
+        reactor: Member = await ch.guild.fetch_member(payload.user_id)
 
         # Check for the appropriate emoji.
         if str(payload.emoji) == '🔭':
             # Check for the appropriate role.
             if utils.get(reactor.roles, name='Curator'): # TODO: Same as above.
-                await self.begin_curation_process(message, reactor)
+                await self.send_to_pending(message)
+
+    async def send_to_pending(self, msg: discord.Message):
+        if 'pending_id' not in config:
+            print('pending_id is not set in the config!')
+            return
+
+        ch: TextChannel = await self.bot.fetch_channel(config['pending_id'])
+
+        # Create "ask for permission" button.
+        action_row = manage_components.create_actionrow(
+            manage_components.create_button(
+                custom_id=f'ask-{msg.author.id}',
+                style=ButtonStyle.green,
+                label='request permission'
+            )
+        )
+
+        await ch.send(embed=message_to_embed(msg), components=[action_row])
+        # Go to on_component for the next step.
 
     @commands.Cog.listener()
-    async def on_component(self, context: ComponentContext):
-        '''Triggered on any component interaction.'''
-        if isinstance(context.custom_id, str) and '-' in context.custom_id:
-            # Recover the curator from the custom IDs.
-            curator_id = int(context.custom_id[context.custom_id.find('-') + 1:])
-            curator: User = await self.bot.fetch_user(curator_id)
+    async def on_component(self, ctx: ComponentContext):
+        # Triggered on any component interaction.
+        if 'ask-' in ctx.custom_id:
+            embed: discord.Embed = ctx.origin_message.embeds[0]
+            await ctx.origin_message.delete()
 
-            # Disable the accept and reject buttons.
-            action_row = self.build_permission_action_row(None)
-            await context.edit_origin(components=[action_row])
+            # Ask user for permission.
+            askee_id = int(ctx.custom_id[4:])
+            askee: discord.User = await self.bot.fetch_user(askee_id)
 
-            color = Color.blue()
-            footer = ''
+            embed.add_field(
+                name='Consent Message',
+                value=
+                    """We're asking for permission to quote you in our research.
+                    • Yes you may quote my post and attribute it to my Discord Handle
+                    • You may quote my post anonymously, do not use my Discord Handle or any other identifying information
+                    • No, you may not quote my post in your research
+                    Thanks for helping us understand the future of governance!"""
+            )
 
-            # Handle the 'accept' case.
-            if context.custom_id.startswith('accept'):
-                color = Color.green()
-                footer = 'Approved by author for anonymous use.'
-    
-            # Handle the 'reject' case.
-            elif context.custom_id.startswith('reject'):
-                color = Color.red()
-                footer = 'Anonymous use rejected by author.'
+            action_row = build_permission_action_row()
+            await askee.send(embed=embed, components=[action_row])
+        
+        if 'accept' == ctx.custom_id:
+            embed: discord.Embed = ctx.origin_message.embeds[0]
+            embed.remove_field(0) # removing consent message
+
+            action_row = build_permission_action_row(disabled=True)
+            await ctx.origin_message.edit(components=[action_row])
+            await self.send_to_approved(embed)
             
-            # Notify the curator.
-            embed: Embed = context.origin_message.embeds[0].copy()
-            embed.color = color
-            embed.set_footer(text=footer)
-            await curator.send(embed=embed)
+        if 'anon' == ctx.custom_id:
+            embed: discord.Embed = ctx.origin_message.embeds[0]
+            embed.remove_field(0) # removing consent message
+            embed.set_author(
+                name=f'anonymous',
+                url=embed.author.url,
+                icon_url='https://i.imgur.com/qbkZFWO.png'
+            )
+
+            # Propagate the anonymized message.
+            action_row = build_permission_action_row(disabled=True)
+            await ctx.origin_message.edit(components=[action_row])
+            await self.send_to_approved(embed)
+        
+        if 'decline' == ctx.custom_id:
+            action_row = build_permission_action_row(disabled=True)
+            await ctx.origin_message.edit(components=[action_row])
+            # Do nothing else, they have declined.
+        
+        await ctx.send('Done!', delete_after=5)
     
-def setup(bot):
-    bot.add_cog(CuratorCog(bot))
+    async def send_to_approved(self, embed: discord.Embed):
+        print('Sending to approved!')
+
+        text = embed.author.url
+        parts = text.split('/')
+        guild_id = int(parts[4])
+        channel_id = int(parts[5])
+        msg_id = int(parts[6])
+
+        # Attempting to retrieve the message link.
+        message: discord.Message = None
+        guild = await self.bot.fetch_guild(guild_id)
+        if guild:
+            channel = await self.bot.fetch_channel(channel_id)                    
+            if channel:
+                try:
+                    message = await channel.fetch_message(msg_id)
+                except discord.errors.Forbidden as e:
+                    if e.code == 50001:
+                        print("I couldn't access that channel")
+            else:
+                print("Channel may have been deleted")
+        else:
+            print("I couldn't access that server")
+
+        # Insert into database.
+        d = TinyDB('messages.json', indent=4)
+        entry = build_database_entry(
+            user=None if embed.author.name == 'anonymous' else message.author,
+            content=message.content,
+            timestamp=message.edited_at or message.created_at,
+            guild=message.guild,
+            channel=message.channel
+        )
+        d.insert(entry)
+
+        ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
+        await ch.send(embed=embed)
+        
+        
+    async def message_approved(self, embed: discord.Embed):
+        '''Called when a message should be sent to the approved channel.'''
+        # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
+        ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
+        # embed.set_footer(text=EmptyEmbed)
+        await self.on_message_approved(embed)
+        await ch.send(embed=embed)
+
+    '''Commands to manipulate pending and approved channels.'''
+
+    @cog_ext.cog_subcommand(base='set', name='approved',
+        guild_ids=config['guild_ids'])
+    async def _set_approved(self, ctx: SlashContext):
+        config['approved_id'] = ctx.channel.id
+        await ctx.send('Done!')
+
+    @cog_ext.cog_subcommand(base='set', name='pending',
+        guild_ids=config['guild_ids'])
+    async def _set_pending(self, ctx: SlashContext):
+        config['pending_id'] = ctx.channel.id
+        await ctx.send('Done!')
+
+def setup(bot: commands.Bot):
+    cog = CuratorCog(bot)
+    bot.add_cog(cog)
