@@ -10,16 +10,18 @@ from discord_slash.utils import manage_components
 from discord_slash import cog_ext
 from utils import message_to_embed
 from discord import utils
+from tinydb import TinyDB
 import discord
 import dataset
 
 def on_message_approved(embed: discord.Embed):
     # Called when a message makes it all the way through the curation process.
-    d = dataset.connect('sqlite:///messages.db')
-    d['messages'].insert(dict(
-        author=embed.author.name,
-        content=embed.description
-    ))
+    # d = dataset.connect('sqlite:///messages.db')
+    # d['messages'].insert(dict(
+    #     author=embed.author.name,
+    #     content=embed.description
+    # ))
+    pass
 
 def build_permission_action_row(disabled=False):
     # Builds the action row for the permission message.
@@ -157,7 +159,7 @@ class CuratorCog(commands.Cog):
         await ctx.send('Done!')
 
     @cog_ext.cog_subcommand(base='set', name='pending',
-        guild_ids=[860079798616457227])
+        guild_ids=config['guild_ids'])
     async def _set_pending(self, ctx: SlashContext):
         config['pending_id'] = ctx.channel.id
         await ctx.send('Done!')
