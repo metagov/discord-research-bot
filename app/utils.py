@@ -19,7 +19,7 @@ def message_to_embed(msg: discord.Message):
     # Include author's avatar and name.
     embed.set_author(
         name=f"{author.display_name}#{author.discriminator}", 
-        url=f"https://discord.com/users/{author.id}",
+        url=msg.jump_url,
         icon_url=author.avatar_url
     )
 
@@ -28,11 +28,6 @@ def message_to_embed(msg: discord.Message):
 
     # Link the original message in the footer.
     # embed.set_footer(text=')
-
-    # Link the original message in a field.
-    embed.add_field(
-        name='Original',
-        value=f'[Jump to message]({msg.jump_url})'
-    )
+    
 
     return embed

@@ -46,9 +46,9 @@ def build_permission_action_row(disabled=False):
 
         manage_components.create_button(
             custom_id='anon',
-            style=ButtonStyle.gray,
+            style=ButtonStyle.blue,
             disabled=disabled,
-            label='yes, but anonymously'
+            label='yes, anonymously'
         ),
 
         manage_components.create_button(
@@ -125,18 +125,31 @@ class CuratorCog(commands.Cog):
             # Ask user for permission.
             askee_id = int(ctx.custom_id[4:])
             askee: discord.User = await self.bot.fetch_user(askee_id)
-            # embed.set_footer(text='May we quote you in our research?')
+
+            embed.add_field(
+                name='Consent Message',
+                value=
+                    """We're asking for permission to quote you in our research.
+                    • Yes you may quote my post and attribute it to my Discord Handle
+                    • You may quote my post anonymously, do not use my Discord Handle or any other identifying information
+                    • No, you may not quote my post in your research
+                    Thanks for helping us understand the future of governance!"""
+            )
+
             action_row = build_permission_action_row()
             await askee.send(embed=embed, components=[action_row])
         
         if 'accept' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
+            embed.remove_field(0) # removing consent message
+
             action_row = build_permission_action_row(disabled=True)
             await ctx.origin_message.edit(components=[action_row])
             await self.message_approved(embed)
             
         if 'anon' == ctx.custom_id:
             embed: discord.Embed = ctx.origin_message.embeds[0]
+            embed.remove_field(0) # removing consent message
             embed.set_author(
                 name=f'anonymous', 
                 url='',
@@ -183,10 +196,10 @@ class CuratorCog(commands.Cog):
                 else:
                     print("I couldn't access that server")
 
-        d.insert({
+        # d.insert({
 
-            'content': message.content
-        })
+        #     'content': message.content
+        # })
         
         
     async def message_approved(self, embed: discord.Embed):
