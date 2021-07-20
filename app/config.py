@@ -56,6 +56,14 @@ class PersistentJSON:
 
     def __str__(self):
         return str(self.db)
+    
+    def __iter__(self):
+        yield from self.db
 
-config = PersistentJSON('config.json')
-# print(config['guild_ids'])
+config = PersistentJSON('config.json', default_db={
+    'token': 'INSERT TOKEN HERE',
+    'guild_ids': [
+        'INSERT GUILD ID HERE',
+        'INSERT GUILD ID HERE'
+    ]
+})

@@ -11,6 +11,15 @@ from discord_slash import cog_ext
 from utils import message_to_embed
 from discord import utils
 import discord
+import dataset
+
+def on_message_approved(embed: discord.Embed):
+    # Called when a message makes it all the way through the curation process.
+    d = dataset.connect('sqlite:///messages.db')
+    d['messages'].insert(dict(
+        author=embed.author.name,
+        content=embed.description
+    ))
 
 def build_permission_action_row(disabled=False):
     # Builds the action row for the permission message.
@@ -79,7 +88,7 @@ class CuratorCog(commands.Cog):
                 await self.begin_curation_process(message)
 
     async def begin_curation_process(self, msg: discord.Message):
-        gd: Guild = await self.bot.fetch_guild(config['guild_id'])
+        # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
         ch: TextChannel = await self.bot.fetch_channel(config['pending_id'])
 
         # Create "ask for permission" button.
@@ -133,21 +142,22 @@ class CuratorCog(commands.Cog):
         
     async def message_approved(self, embed: discord.Embed):
         '''Called when a message should be sent to the approved channel.'''
-        gd: Guild = await self.bot.fetch_guild(config['guild_id'])
+        # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
         ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
         embed.set_footer(text=EmptyEmbed)
+        on_message_approved(embed)
         await ch.send(embed=embed)
 
     '''Commands to manipulate pending and approved channels.'''
 
     @cog_ext.cog_subcommand(base='set', name='approved',
-        guild_ids=[int(x) for x in config['guild_ids']])
+        guild_ids=config['guild_ids'])
     async def _set_approved(self, ctx: SlashContext):
         config['approved_id'] = ctx.channel.id
         await ctx.send('Done!')
 
     @cog_ext.cog_subcommand(base='set', name='pending',
-        guild_ids=[int(x) for x in config['guild_ids']])
+        guild_ids=[860079798616457227])
     async def _set_pending(self, ctx: SlashContext):
         config['pending_id'] = ctx.channel.id
         await ctx.send('Done!')

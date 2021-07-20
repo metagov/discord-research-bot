@@ -2,6 +2,7 @@ app/token.txt
 app/bridges.db
 app/curation.json
 app/config.json
+app/messages.db
 
 **/__pycache__
 .vscode
