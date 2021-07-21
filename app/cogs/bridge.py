@@ -10,7 +10,7 @@ class BridgeCog(commands.Cog):
     '''Transports messages across guild boundaries.'''
     
     def __init__(self, bot: commands.Bot):
-        print('Loaded', self.__class__.__name__)
+        # print('Loaded', self.__class__.__name__)
         self.bot = bot
     
     @cog_ext.cog_subcommand(

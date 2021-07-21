@@ -23,6 +23,10 @@ class MyBot(commands.Bot):
         print('  Logged in as', self.user)
         print('  Discord.py version is', discord.__version__)
 
+        print('  Logged into', len(self.guilds), 'guilds!')
+        for guild in self.guilds:
+            print(f'    {guild.name} ({guild.id})')
+
     def load_extensions(self):
         for ext in extensions:
             self.load_extension(ext)

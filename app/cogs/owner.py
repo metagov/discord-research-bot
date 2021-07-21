@@ -6,6 +6,7 @@ from discord_slash.context import SlashContext
 from discord_slash.utils.manage_commands import create_option
 from datetime import datetime
 from config import config
+import discord
 import os
 
 class OwnerCog(commands.Cog):
@@ -13,7 +14,7 @@ class OwnerCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-    
+
     @commands.group()
     @commands.is_owner()
     async def owner(self, ctx):
