@@ -92,7 +92,7 @@ class OwnerCog(commands.Cog):
             await owner.send(embed=embed)
         else:
             # Send to special channel.
-            channel = await self.bot.get_or_fetch_channel(ctx.channel_id)
+            channel = await self.bot.get_or_fetch_channel(config['report_id'])
             await channel.send(embed=embed)
         
         await ctx.send('Thanks! This information will help make the bot even '
