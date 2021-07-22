@@ -18,29 +18,29 @@ def make_permission_action_row(disabled=False):
     return create_actionrow(
         create_button(
             style=ButtonStyle.green,
-            label='yes',
-            emoji='👍',
+            label='Yes',
+            # emoji='👍',
             custom_id='accept',
             disabled=disabled
         ),
         create_button(
             style=ButtonStyle.blue,
-            label='yes, anonymously',
-            emoji='🕵️',
+            label='Yes, anonymously',
+            # emoji='🕵️',
             custom_id='anonymous',
             disabled=disabled
         ),
         create_button(
             style=ButtonStyle.red,
-            label='no',
-            emoji='👎',
+            label='No',
+            # emoji='👎',
             custom_id='decline',
             disabled=disabled
         ),
         create_button(
             style=ButtonStyle.URL,
-            label='join our server',
-            emoji='🗺️',
+            label='Join our server',
+            # emoji='🗺️',
             url='https://discord.com/'
         )
     )
@@ -80,7 +80,8 @@ class CuratorCog(commands.Cog):
         name='pending',
         description='Set the pending messages channel.',
         guild_ids=config['guild_ids'],
-        base_permissions=config['permissions']
+        base_permissions=config['permissions'],
+        base_default_permission=False
     )
     async def _set_pending(self, ctx: SlashContext):
         # Use the current channel's ID.
@@ -93,7 +94,8 @@ class CuratorCog(commands.Cog):
         name='approved',
         description='Set the approved messages channel.',
         guild_ids=config['guild_ids'],
-        base_permissions=config['permissions']
+        base_permissions=config['permissions'],
+        base_default_permission=False
     )
     async def _set_approved(self, ctx: SlashContext):
         # Use the current channel's ID.

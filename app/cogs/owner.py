@@ -98,5 +98,19 @@ class OwnerCog(commands.Cog):
         await ctx.send('Thanks! This information will help make the bot even '
             'better. 😄')
 
+    @cog_ext.cog_subcommand(
+        base='set',
+        name='report',
+        description='Set the bug report channel.',
+        guild_ids=config['guild_ids'],
+        base_permissions=config['permissions'],
+        base_default_permission=False
+    )
+    async def _set_report(self, ctx: SlashContext):
+        # Use the current channel's ID.
+        config['report_id'] = ctx.channel_id
+        mention = ctx.channel.mention
+        await ctx.send(f'Bug reports will now go to {mention}.')
+
 def setup(bot):
     bot.add_cog(OwnerCog(bot))
