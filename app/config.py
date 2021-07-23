@@ -16,6 +16,7 @@ class PersistentJSON:
         file = open(self.filename, 'r')
         d = json.load(file)
         self.db = self.unstringify(d)
+        # print(self.db)
         file.close()
     
     def _save(self):
@@ -52,10 +53,8 @@ class PersistentJSON:
             return obj
 
         if type(obj) is dict:
-            d = {}
-            for k, v in obj.items():
-                d[self.unstringify(k)] = self.unstringify(v)
-            return d
+            return {self.unstringify(k): self.unstringify(v)
+                    for k, v in obj.items()}
         
         return obj
 
@@ -66,7 +65,7 @@ class PersistentJSON:
     def get(self, key, defval=None):
         try:
             return self[key]
-        except KeyError as e:
+        except KeyError:
             return defval
 
     # Object represented as a string of the dictionary.
@@ -84,4 +83,4 @@ config = PersistentJSON('config.json', default={
     'guild_ids': [],
     'permissions': {}
 })
-print(config['permissions'])
+# print(config['permissions'])
