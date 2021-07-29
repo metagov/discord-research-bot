@@ -1,13 +1,15 @@
 from discord.ext import commands
+from discord.message import Message
 from discord.raw_models import RawReactionActionEvent
 from discord_slash import cog_ext
 from discord_slash.context import ComponentContext, SlashContext
 from discord.utils import get
 from discord_slash.model import ButtonStyle
 from discord_slash.utils.manage_components import create_actionrow, create_button
-from config import config
+from config import config, perms
 from utils import message_to_embed
 from tinydb import TinyDB
+import discord
 import sys
 import re
 
@@ -45,7 +47,17 @@ def make_permission_action_row(disabled=False):
         )
     )
 
-def make_database_entry(user, content, timestamp, guild, channel):
+async def get_emojicount(message: Message, guild: discord.Guild):
+    # Get's number of EMOJIs on message by curators.
+    count = 0
+    reaction = get(message.reactions, emoji=EMOJI)
+    async for user in reaction.users():
+        member = await guild.fetch_member(user.id)
+        if get(member.roles, name='Curator'):
+            count += 1
+    return count
+
+def make_database_entry(user, content, timestamp, guild, channel, emojicount):
     # Returns something readily insertable into the database.
     entry = {
         'content': content,
@@ -57,7 +69,8 @@ def make_database_entry(user, content, timestamp, guild, channel):
         'channel': {
             '_id': channel.id,
             'name': channel.name
-        }
+        },
+        'emojicount': emojicount
     }
 
     # Handle the anonymous case.
@@ -80,7 +93,7 @@ class CuratorCog(commands.Cog):
         name='pending',
         description='Set the pending messages channel.',
         guild_ids=config['guild_ids'],
-        base_permissions=config['permissions'],
+        base_permissions=perms,
         base_default_permission=False
     )
     async def _set_pending(self, ctx: SlashContext):
@@ -94,7 +107,7 @@ class CuratorCog(commands.Cog):
         name='approved',
         description='Set the approved messages channel.',
         guild_ids=config['guild_ids'],
-        base_permissions=config['permissions'],
+        base_permissions=perms,
         base_default_permission=False
     )
     async def _set_approved(self, ctx: SlashContext):
@@ -109,14 +122,14 @@ class CuratorCog(commands.Cog):
         if not channel.guild:
             return # We are in a DM.
         
-        message = await channel.fetch_message(payload.message_id)
-        reaction = get(message.reactions, emoji=payload.emoji.name)
-        if reaction.count == 1 and str(payload.emoji) == EMOJI:
+        reactor = await channel.guild.fetch_member(payload.user_id)
+        if not get(reactor.roles, name='Curator'):
+            return # Ignore non-curators.
 
-            # Check for role.
-            reactor = await channel.guild.fetch_member(payload.user_id)
-            if get(reactor.roles, name='Curator'):
-                await self.on_message_reacted(message)
+        message = await channel.fetch_message(payload.message_id)
+        count = await get_emojicount(message, channel.guild)
+        if str(payload.emoji) == EMOJI and count == 1:
+            await self.on_message_reacted(message)
     
     async def on_message_reacted(self, message):
         if 'pending_id' not in config:
@@ -176,7 +189,7 @@ Thanks for helping us understand the future of governance!'''
             # Anonymize.
             embed.set_author(
                 name=ANONYMOUS,
-                url=embed.author.url,
+                url='', # Remove message link.
                 icon_url='https://i.imgur.com/qbkZFWO.png'
             )
 
@@ -202,9 +215,16 @@ Thanks for helping us understand the future of governance!'''
         pattern = '^.*/([0-9]+)/([0-9]+)/([0-9]+)$'
         results = re.search(pattern, embed.author.url)
         
-        # guild_id = results.group(1)
+        guild_id = results.group(1)
         channel_id = results.group(2)
         message_id = results.group(3)
+
+        # Send to observatory channel in guild.
+        if 'repeats' in config and \
+            str(guild_id) in config['repeats']:
+            channel_id = config['repeats'][str(guild_id)]
+            observe = await self.bot.get_or_fetch_channel(channel_id)
+            await observe.send(embed=embed)
 
         # guild = await self.bot.get_or_fetch_guild(guild_id)
         channel = await self.bot.get_or_fetch_channel(channel_id)
@@ -217,10 +237,12 @@ Thanks for helping us understand the future of governance!'''
             timestamp=message.edited_at or \
                 message.created_at,
             guild=message.guild,
-            channel=message.channel
+            channel=message.channel,
+            emojicount=await get_emojicount(message, channel.guild)
         )
 
-        name = config.get('db', None) or 'messages.json'
+        # Write to disk.
+        name = 'messages.json' if 'db' not in config else config['db']
         print(f'  Adding message to {name}')
         d = TinyDB(name, indent=4)
         d.insert(entry)

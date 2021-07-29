@@ -1,87 +1,62 @@
+from collections.abc import MutableMapping
 from pathlib import Path
 import json
 
-class PersistentJSON:
-    def __init__(self, filename, default={}):
+class Config(MutableMapping):
+    """Mutable and persistent configuration store."""
+
+    def __init__(self, filename, default=None):
         self.filename = filename
-        self.db = default
+        self.data = default or {}
 
-        # Creates empty json if file doesn't already exist.
+        # Load from disk or save default.
         if Path(self.filename).exists():
-            self._load()
-        else:
-            self._save()
-    
-    def _load(self):
-        file = open(self.filename, 'r')
-        d = json.load(file)
-        self.db = self.unstringify(d)
-        file.close()
-    
-    def _save(self):
-        d = self.stringify(self.db)
-        file = open(self.filename, 'w')
-        json.dump(d, file, indent=4)
-        file.close()
+            self.load()
 
-    # Internal Python functions allow the object to be treated like a dict.
-    # Integers are converted to strings to preserve precision.
-    def __getitem__(self, key):
-        return self.db[key]
-
-    def stringify(self, obj):
-        if type(obj) is int:
-            return f'int-{obj}'
-        
-        if type(obj) is list:
-            return [self.stringify(x) for x in obj]
-        
-        if type(obj) is dict:
-            return {self.stringify(k): self.stringify(v)
-                    for k, v in obj.items()}
-        
-        return obj
+    def load(self):
+        with open(self.filename, 'r') as file:
+            self.data = json.load(file)
     
-    def unstringify(self, obj):
-        if type(obj) is str and obj.startswith('int-'):
-            return int(obj[4:])
-        
-        if type(obj) is list:
-            for i, item in enumerate(obj):
-                obj[i] = self.unstringify(item)
-            return obj
+    def save(self):
+        with open(self.filename, 'w') as file:
+            json.dump(self.data, file, indent=4)
 
-        if type(obj) is dict:
-            d = {}
-            for k, v in obj.items():
-                d[self.unstringify(k)] = self.unstringify(v)
-            return d
-        
-        return obj
-
-    def __setitem__(self, key, val):
-        self.db[key] = val
-        self._save()
-    
     def get(self, key, defval=None):
-        try:
-            return self[key]
-        except KeyError as e:
+        if key not in self:
             return defval
+        else:
+            return self[key]
 
-    # Object represented as a string of the dictionary.
-    def __repr__(self):
-        return str(self.db)
+    # The next five methods are required by the base class.
 
-    def __str__(self):
-        return str(self.db)
+    def __getitem__(self, key):
+        return self.data[key]
+    
+    def __setitem__(self, key, value):
+        self.data[key] = value
+        self.save() # Save on every assignment.
+    
+    def __delitem__(self, key):
+        del self.data[key]
+        self.save() # Or deletion.
+    
+    def __len__(self):
+        return len(self.data)
     
     def __iter__(self):
-        yield from self.db
+        return iter(self.data)
 
-config = PersistentJSON('config.json', default={
-    'token': '',
-    'guild_ids': [],
-    'permissions': {}
-})
-print(config['permissions'])
+def to_slash_perms(arr):
+    """Slash command library requires different format of permissions: a
+    dictionary with integer guild IDs as the keys."""
+    result = {}
+    for obj in arr:
+        result[obj['guild_id']] = [{
+            'id': obj['role_id'],
+            'type': 1, # 1 means role.
+            'permission': True
+        }]
+    return result
+
+config = Config('config.json')
+perms = to_slash_perms(config['guilds']) # Make sure to use this instead.

@@ -5,7 +5,7 @@ from discord_slash import cog_ext
 from discord_slash.context import SlashContext
 from discord_slash.utils.manage_commands import create_option
 from datetime import datetime
-from config import config
+from config import config, perms
 import discord
 import os
 
@@ -103,7 +103,8 @@ class OwnerCog(commands.Cog):
         name='report',
         description='Set the bug report channel.',
         guild_ids=config['guild_ids'],
-        base_permissions=config['permissions'],
+        # base_permissions=config['permissions'],
+        base_permissions=perms,
         base_default_permission=False
     )
     async def _set_report(self, ctx: SlashContext):

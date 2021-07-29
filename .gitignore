@@ -4,6 +4,8 @@ app/curation.json
 app/config.json
 app/messages.db
 app/messages.json
+config.json
+messages.json
 
 **/__pycache__
 .vscode

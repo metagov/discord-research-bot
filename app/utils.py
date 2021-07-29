@@ -1,10 +1,10 @@
 import discord
 
-def user_to_color(user: discord.User):
+def user_to_color(user):
     # Maps discord discriminator to a hex color value.
     return int(int(user.discriminator) / 9999 * 0xffffff)
 
-def message_to_embed(msg: discord.Message):
+def message_to_embed(msg):
     # Turns a message into an embed.
     embed = discord.Embed(
         description=msg.content,
