@@ -251,13 +251,8 @@ Thanks for helping us understand the future of governance!'''
             emojicount=await get_emojicount(message, channel.guild)
         )
 
-<<<<<<< HEAD
         # Write to disk.
         name = 'messages.json' if 'db' not in config else config['db']
-=======
-        # Fallback if not set in config.
-        name = config.get('db', None) or 'messages.json'
->>>>>>> 7707e25ed72196507b00afd771539ccc2a7c582a
         print(f'  Adding message to {name}')
         d = TinyDB(name, indent=4)
         d.insert(entry)
