@@ -151,6 +151,8 @@ class CuratorCog(commands.Cog):
     
     @commands.Cog.listener()
     async def on_component(self, ctx: ComponentContext):
+        await ctx.defer()
+        
         if ctx.custom_id.startswith('ask-'):
             await ctx.origin_message.delete()
 
@@ -209,6 +211,14 @@ Thanks for helping us understand the future of governance!'''
     async def on_message_approved(self, embed):
         # Send to approved channel.
         channel = await self.bot.get_or_fetch_channel(config['approved_id'])
+
+        if embed.author.name == 'anonymous':
+            embed.set_author(
+                name=embed.author.name, 
+                url='', # Remove message link.
+                icon_url=embed.author.avatar_url
+            )
+        
         await channel.send(embed=embed)
 
         # Add to database.
@@ -241,8 +251,13 @@ Thanks for helping us understand the future of governance!'''
             emojicount=await get_emojicount(message, channel.guild)
         )
 
+<<<<<<< HEAD
         # Write to disk.
         name = 'messages.json' if 'db' not in config else config['db']
+=======
+        # Fallback if not set in config.
+        name = config.get('db', None) or 'messages.json'
+>>>>>>> 7707e25ed72196507b00afd771539ccc2a7c582a
         print(f'  Adding message to {name}')
         d = TinyDB(name, indent=4)
         d.insert(entry)
