@@ -140,9 +140,8 @@ class CuratorCog(commands.Cog):
         row = create_actionrow(
             create_button(
                 style=ButtonStyle.blue,
-                label='request permission',
-                custom_id=f'ask-{message.author.id}',
-                emoji='🗣️'
+                label='Request permission',
+                custom_id=f'ask-{message.author.id}'
             )
         )
 
@@ -151,8 +150,6 @@ class CuratorCog(commands.Cog):
     
     @commands.Cog.listener()
     async def on_component(self, ctx: ComponentContext):
-        await ctx.defer()
-        
         if ctx.custom_id.startswith('ask-'):
             await ctx.origin_message.delete()
 

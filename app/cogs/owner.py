@@ -22,6 +22,16 @@ class OwnerCog(commands.Cog):
         pass
 
     @owner.command()
+    async def add_guild(self, ctx, guild_id: int, role_id: int):
+        # TODO: Make this prettier.
+        config['guilds'].append({
+            'guild_id': guild_id,
+            'role_id': role_id
+        })
+        config.save()
+        await ctx.send('Changes will be applied upon next restart.')
+
+    @owner.command()
     async def reload(self, ctx):
         try:
             self.bot.reload_extensions()

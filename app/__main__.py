@@ -6,7 +6,8 @@ import discord
 extensions = [
     'cogs.owner',
     'cogs.curator',
-    'cogs.bridge'
+    'cogs.bridge',
+    'cogs.reward'
 ]
 
 class MyBot(commands.Bot):
