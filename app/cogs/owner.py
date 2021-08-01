@@ -1,127 +1,119 @@
-from discord.colour import Color
+from datetime import datetime
 from discord.embeds import Embed
-from discord.ext import commands
 from discord_slash import cog_ext
+from discord.ext import commands
 from discord_slash.context import SlashContext
 from discord_slash.utils.manage_commands import create_option
-from datetime import datetime
-from config import config, perms
-import discord
-import os
+from config import config, parse_config
+from utils import user2color
+
+# For slash commands.
+supp_config = parse_config(config)
 
 class OwnerCog(commands.Cog):
-    '''Provides useful owner-only commands for live bot management.'''
+    """Functions available only to the owner of the bot."""
 
     def __init__(self, bot):
         self.bot = bot
-
-    @commands.group()
+    
+    @commands.command()
     @commands.is_owner()
-    async def owner(self, ctx):
-        # is_owner is propagated to all commands within group.
-        pass
-
-    @owner.command()
-    async def add_guild(self, ctx, guild_id: int, role_id: int):
-        # TODO: Make this prettier.
-        config['guilds'].append({
-            'guild_id': guild_id,
-            'role_id': role_id
-        })
-        config.save()
-        await ctx.send('Changes will be applied upon next restart.')
-
-    @owner.command()
-    async def reload(self, ctx):
-        try:
-            self.bot.reload_extensions()
-            await ctx.message.add_reaction('👍')
-        except Exception as e:
-            await ctx.send(f'An error has occurred. `{type(e).__name__} - {e}`.'
-                ' A restart is most likely required.')
-
-    @owner.command()
-    async def update(self, ctx):
-        stream = os.popen('git pull')
-        output = stream.read()
+    async def bootstrap(self, ctx: commands.Context):
+        """Adds the owner to the admin list."""
+        await ctx.invoke(self.bot.get_command('admin'), ctx.author)
+    
+    @commands.command()
+    @commands.is_owner()
+    async def extensions(self, ctx: commands.Context):
+        """Displays the loaded extensions."""
+        texts = ['The currently loaded extensions are:\n']
+        for ext in self.bot.extensions:
+            texts.append(f' • {ext}\n')
+        await ctx.reply(''.join(texts))
+    
+    @commands.command()
+    @commands.is_owner()
+    async def adminlist(self, ctx: commands.Context):
+        """Displays the admin list."""
+        texts = ['The current admins are:\n']
+        for admin_id in config['admins']:
+            user = await self.bot.fetch_user(admin_id)
+            texts.append(f' • {user.name}#{user.discriminator} ({user.id})\n')
+        await ctx.reply(''.join(texts))
+    
+    @commands.command()
+    @commands.is_owner()
+    async def reload(self, ctx: commands.Context):
+        """Reloads all extensions."""
         self.bot.reload_extensions()
-        await ctx.send(f'```{output}```')
-
+        await ctx.reply('All extensions have been reloaded.')
+    
+    @commands.Cog.listener()
+    async def on_command_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.NotOwner):
+            await ctx.reply(f'Sorry, {ctx.author.mention}, but you have'
+                ' insufficient permissions.')
+        
+        else:
+            # Propagate upwards.
+            raise error
+    
     @cog_ext.cog_slash(
         name='bugreport',
         description='Report a bug to the development team.',
-        guild_ids=config['guild_ids'],
+        guild_ids=supp_config.guild_ids,
         options=[
             create_option(
                 name='description',
-                description='Please describe what happened! Your handle, guild,'
-                    ' and channel will be recorded.',
-                option_type=3,
+                description='A description of the bug.',
+                option_type=3, # 3 means string
                 required=True
             )
         ]
     )
-    async def _bugreport(self, ctx: SlashContext, description):
-        # Build an embed that describes the bug.
-        embed = Embed(
-            description=description,
-            color=Color.red(),
-            timestamp=datetime.utcnow()
-        )
+    async def _bugreport_slash(self, ctx: SlashContext, description):
+        async def send_to(user):
+            """Send a report to the specified user."""
 
-        # Show reporter's profile picture.
-        embed.set_author(
-            name=f'{ctx.author.display_name}#{ctx.author.discriminator}',
-            url=f'https://discordapp.com/users/{ctx.author_id}',
-            icon_url=ctx.author.avatar_url
-        )
-
-        # Show guild.
-        embed.add_field(
-            name='Guild',
-            value=f'{ctx.guild.name} ({ctx.guild_id})',
-            inline=False
-        )
-
-        # Show channel.
-        embed.add_field(
-            name='Channel',
-            value=f'{ctx.channel.name} ({ctx.channel_id})',
-            inline=False
-        )
-
-        if 'report_id' not in config:
-            # Tell owner why it was sent to him.
-            embed.set_footer(
-                text='This bug report has been sent to you because \'report_id'
-                    '\' is not set in the config.'
+            embed = Embed(
+                title='Bug Report',
+                description=description,
+                color=user2color(ctx.author),
+                timestamp=datetime.utcnow()
             )
 
-            # Send to bot owner.
-            owner = await self.bot.get_or_fetch_user(self.bot.owner_id)
-            await owner.send(embed=embed)
+            author = ctx.author
+            
+            embed.set_author(
+                name=f'{author.display_name}#{author.discriminator}',
+                url='', # No message to link.
+                icon_url=author.avatar_url
+            )
+
+            embed.set_footer(
+                text=f'{ctx.guild.name} - #{ctx.channel.name}'
+            )
+
+            await user.send(embed=embed)
+
+        if self.bot.owner_id:
+            owner = await self.bot.fetch_user(self.bot.owner_id)
+            await send_to(owner)
+        elif self.bot.owner_ids:
+            for owner_id in self.bot.owner_ids:
+                owner = await self.bot.fetch_user(owner_id)
+                await send_to(owner)
         else:
-            # Send to special channel.
-            channel = await self.bot.get_or_fetch_channel(config['report_id'])
-            await channel.send(embed=embed)
+            # Request owners.
+            app = await self.bot.application_info()
+            if app.team:
+                for owner in app.team.members:
+                    await send_to(owner)
+            else:
+                await send_to(app.owner)
         
-        await ctx.send('Thanks! This information will help make the bot even '
-            'better. 😄')
-
-    @cog_ext.cog_subcommand(
-        base='set',
-        name='report',
-        description='Set the bug report channel.',
-        guild_ids=config['guild_ids'],
-        # base_permissions=config['permissions'],
-        base_permissions=perms,
-        base_default_permission=False
-    )
-    async def _set_report(self, ctx: SlashContext):
-        # Use the current channel's ID.
-        config['report_id'] = ctx.channel_id
-        mention = ctx.channel.mention
-        await ctx.send(f'Bug reports will now go to {mention}.')
-
+        await ctx.send('Thanks! 😄')
+    
 def setup(bot):
-    bot.add_cog(OwnerCog(bot))
+    cog = OwnerCog(bot)
+    bot.add_cog(cog)
