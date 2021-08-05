@@ -26,14 +26,14 @@ class CuratorCog(commands.Cog):
         self.bot = bot
         self.db = TinyDB(config['db_fname'], indent=4)
     
-    @commands.command(name='setup')
+    @commands.command()
     @commands.check(is_admin)
-    async def _setup_command(self, ctx: commands.Context, guild: discord.Guild,
+    async def setup(self, ctx: commands.Context, guild: discord.Guild,
         pending: discord.TextChannel, approved: discord.TextChannel):
         """Configures a channel for the curation process."""
 
         # Delegate to helper method.
-        self.setup(guild.id, pending.id, approved.id)
+        self._setup(guild.id, pending.id, approved.id)
 
         await pending.send(f'Pending messages from **{guild.name}** will now'
             ' now come here.')
@@ -44,9 +44,9 @@ class CuratorCog(commands.Cog):
         await ctx.reply(f'Gotcha, {ctx.author.mention}. It should be working'
             ' upon the next reload or restart.')
         
-    def setup(self, guild_id, pending_id, approved_id):
+    def _setup(self, guild_id, pending_id, approved_id):
         """Configures a guild to use a certain pending and approved channels."""
-        config['guild_configs'][str(guild.id)] = {
+        config['guild_configs'][guild_id] = {
             'pending_id': pending_id,
             'approved_id': approved_id
         }
@@ -54,7 +54,7 @@ class CuratorCog(commands.Cog):
         config.save() # Need to manually save.
 
     @setup.error
-    async def setup_error(self, ctx: commands.Context, error):
+    async def _setup_error(self, ctx: commands.Context, error):
         if isinstance(error, MissingRequiredArgument) or \
             isinstance(error, BadArgument):
 
@@ -102,11 +102,11 @@ class CuratorCog(commands.Cog):
             'user_hash': user_hash(message.author),
             'message_id': message.id,
             'guild': {
-                'id_': message.guild.id,
+                'id': message.guild.id,
                 'name': message.guild.name
             },
             'channel': {
-                'id_': message.channel.id,
+                'id': message.channel.id,
                 'name': message.channel.name
             },
             'curators': [],
@@ -116,14 +116,14 @@ class CuratorCog(commands.Cog):
         # Populate 'curators' list.
         for curator in curators:
             entry['curators'].append({
-                'id_': curator.id,
+                'id': curator.id,
                 'name': curator.name,
                 'discriminator': curator.discriminator
             })
 
         if not anonymous:
             entry['user'] = {
-                'id_': message.author.id,
+                'id': message.author.id,
                 'name': message.author.name,
                 'discriminator': message.author.discriminator
             }
@@ -141,7 +141,6 @@ class CuratorCog(commands.Cog):
         if anonymous:
             self.make_embed_anonymous(message.author, embed)
             
-
         # Add 'Add comment' button.
         action_row = create_actionrow(
             create_button(
