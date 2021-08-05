@@ -26,18 +26,14 @@ class CuratorCog(commands.Cog):
         self.bot = bot
         self.db = TinyDB(config['db_fname'], indent=4)
     
-    @commands.command()
+    @commands.command(name='setup')
     @commands.check(is_admin)
-    async def setup(self, ctx: commands.Context, guild: discord.Guild,
+    async def _setup_command(self, ctx: commands.Context, guild: discord.Guild,
         pending: discord.TextChannel, approved: discord.TextChannel):
         """Configures a channel for the curation process."""
 
-        config['guild_configs'][str(guild.id)] = {
-            'pending_id': pending.id,
-            'approved_id': approved.id
-        }
-
-        config.save() # Need to manually save.
+        # Delegate to helper method.
+        self.setup(guild.id, pending.id, approved.id)
 
         await pending.send(f'Pending messages from **{guild.name}** will now'
             ' now come here.')
@@ -47,6 +43,15 @@ class CuratorCog(commands.Cog):
 
         await ctx.reply(f'Gotcha, {ctx.author.mention}. It should be working'
             ' upon the next reload or restart.')
+        
+    def setup(self, guild_id, pending_id, approved_id):
+        """Configures a guild to use a certain pending and approved channels."""
+        config['guild_configs'][str(guild.id)] = {
+            'pending_id': pending_id,
+            'approved_id': approved_id
+        }
+
+        config.save() # Need to manually save.
 
     @setup.error
     async def setup_error(self, ctx: commands.Context, error):

@@ -117,6 +117,7 @@ default = {
         'groups': {},
         'channels': {}
     },
+    'deploys_wip': {},
     'admins': []
 }
 
