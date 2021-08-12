@@ -6,6 +6,7 @@ app/messages.db
 app/messages.json
 config.json
 messages.json
+data.json
 
 **/__pycache__
 .vscode

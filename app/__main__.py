@@ -1,3 +1,5 @@
-from bot import MyBot
+from bot import Bot
+from helpers import init_logging
 
-MyBot().run()
+init_logging()
+Bot().run()

@@ -1,58 +1,32 @@
-from discord.activity import Activity, Game
-from discord_slash.client import SlashCommand
-from config import config, DEFAULT_TOKEN
+from helpers import get_prefix, get_token
+from discord_slash import SlashCommand
 from discord.ext import commands
-from pathlib import Path
+from constants import EXTENSIONS
 import logging
-import sys
 
-extensions = [
-    'cogs.admin',
-    'cogs.curator',
-    'cogs.owner',
-    'cogs.bridge'
-]
+logger = logging.getLogger(__name__)
 
-class MyBot(commands.Bot):
+class Bot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=config['command_prefix'])
+        super().__init__(command_prefix=get_prefix)
         SlashCommand(self, sync_commands=True)
         self.load_extensions()
 
-    async def on_ready(self):
-        """Called when library is done preparing data from discord."""
-        print(f'Logged in successfully as {self.user}')
-        print(f'Command prefix is \'{self.command_prefix}\'')
-        print(f'Extensions are {extensions}')
-
-        # Show command prefix in status.
-        await self.change_presence(
-            activity=Game(name=f'use {self.command_prefix} or /')
-        )
-
     def load_extensions(self):
-        """Loads all default extensions."""
-        for ext in extensions: 
-            print(f'Loaded {ext}')
+        for ext in EXTENSIONS:
+            logger.info('Loading %s', ext)
             self.load_extension(ext)
-    
-    def unload_extensions(self):
-        """Unloads all default extensions."""
-        for ext in extensions:
-            print(f'Unloaded {ext}')
-            self.unload_extension(ext)
-    
-    def reload_extensions(self):
-        """Reloads all default extensions."""
-        self.unload_extensions()
-        self.load_extensions()
 
-    def run(self):
-        """Runs bot with configured token."""
-        if config['token'] == DEFAULT_TOKEN:
-            logging.error('Hey there! It doesn\'t look like the token is'
-                ' setup correctly in the config. Please change it and re-launch'
-                ' the program.')
-            sys.exit(1)
-        super().run(config['token'], reconnect=True)
+    async def fetch_guild(self, guild_id):
+        return self.get_guild(guild_id) or \
+            await super().fetch_guild(guild_id)
+
+    async def fetch_channel(self, channel_id):
+        return self.get_channel(channel_id) or \
+            await super().fetch_channel(channel_id)
     
+    def run(self):
+        super().run(get_token(), reconnect=True)
+    
+    async def on_ready(self):
+        logger.info('Logged in as %s', self.user)
