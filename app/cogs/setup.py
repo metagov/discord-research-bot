@@ -13,9 +13,13 @@ class SetupCog(commands.Cog):
     
     @cog_ext.cog_slash(
         name="setup",
-        guild_ids=[474736509472473088, 870551183339696138, 870551292525809684]
+        guild_ids=[474736509472473088, 870551183339696138, 870551292525809684,
+                   872936378118324235]
     )
     async def setup(self, ctx):
+        if not db.user(user=ctx.author).is_admin:
+            return await ctx.send('Insufficient permissions!')
+
         observatory = self.bot.get_guild(CENTRAL_HUB_ID)
         
         if ctx.guild == observatory:
@@ -32,7 +36,10 @@ class SetupCog(commands.Cog):
         db.guild(ctx.guild).pending_channel = pending
         db.guild(ctx.guild).approved_channel = approved
         
-        await ctx.send("Done!")
+        db.channel(channel=ctx.channel).group = ctx.guild.name
+        db.channel(channel=bridge).group = ctx.guild.name
+        
+        await ctx.reply("Done!")
 
 def setup(bot):
     cog = SetupCog(bot)

@@ -4,7 +4,7 @@ from tinydb.queries import Query
 from tinydb import TinyDB, where
 from helpers import user_to_hash
 from datetime import datetime
-from typing import Optional
+from typing import Generator, List, Optional
 from enum import IntEnum
 from constants import *
 import logging
@@ -17,10 +17,11 @@ STATUSES_TABLE_NAME   = 'statuses'
 ALTERNATES_TABLE_NAME = 'alternates'
 CHANNELS_TABLE_NAME   = 'channels'
 USERS_TABLE_NAME      = 'users'
-HOOKS_TABLE_NAME      = 'hooks' # User replies to a message and 
+HOOKS_TABLE_NAME      = 'hooks'
 COMMENTS_TABLE_NAME   = 'comments'
 MESSAGES_TABLE_NAME   = 'messages'
 ADMINS_TABLE_NAME     = 'admins'
+BRIDGES_TABLE_NAME    = 'bridges'
 
 class LiveDocument(ABC):
     def __init__(self, handle, **kwargs):
@@ -295,6 +296,34 @@ class Channel(LiveDocument):
     async def fetch(self, bot):
         return await bot.fetch_channel(self.id)
 
+    @property
+    def group(self) -> Optional[str]:
+        document = self.handle.table(BRIDGES_TABLE_NAME).get(self.base_query)
+        return None if document is None else document.get('group', None)
+    
+    @group.setter
+    def group(self, value):
+        logger.debug('Group for %s set to %s', self.id, value)
+
+        self.handle.table(BRIDGES_TABLE_NAME).upsert({
+            'channel_id': self.id,
+            'group': value
+        }, self.base_query)
+    
+    @group.deleter
+    def group(self):
+        logger.debug('Group for %s removed', self.id)
+
+        query = where('channel_id') == self.id
+        self.handle.table(BRIDGES_TABLE_NAME).remove(query)
+    
+    def get_channels_in_group(self, group) -> Generator['Channel', None, None]:
+        query = where('group') == group
+        results = self.handle.table(BRIDGES_TABLE_NAME).search(query)
+
+        for document in results:
+            yield Channel(self.handle, id=document['channel_id'])
+
 class Guild(LiveDocument):
     def __init__(self, handle, guild=None, id=0):
         self.handle = handle
@@ -439,6 +468,9 @@ class Database:
         :rtype: User
         """
         return User(self.handle, *args, **kwargs)
+    
+    def channel(self, *args, **kwargs) -> Channel:
+        return Channel(self.handle, *args, **kwargs)
     
 # Accessible in other modules.
 db = Database(DATABASE_FNAME)

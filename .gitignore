@@ -4,6 +4,7 @@ app/curation.json
 app/config.json
 app/messages.db
 app/messages.json
+dev/*
 config.json
 messages.json
 data.json

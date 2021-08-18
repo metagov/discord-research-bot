@@ -5,5 +5,6 @@ CENTRAL_HUB_ID = 474736509472473088
 EXTENSIONS = [
     'cogs.curator',
     'cogs.admin',
-    'cogs.setup'
+    'cogs.setup',
+    'cogs.bridge'
 ]
