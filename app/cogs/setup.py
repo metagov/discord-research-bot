@@ -5,7 +5,8 @@ from discord_slash import cog_ext
 from constants import CENTRAL_HUB_ID
 from database import *
 
-from cogs.curator import CuratorCog
+
+logger = logging.getLogger(__name__)
 
 class SetupCog(commands.Cog):
     def __init__(self, bot):
@@ -41,6 +42,46 @@ class SetupCog(commands.Cog):
         db.channel(channel=bridge).group = ctx.guild.name
         
         await ctx.reply("Done!")
+
+    @cog_ext.cog_slash(
+        name="airdrop",
+        guild_ids=[474736509472473088, 870551183339696138, 870551292525809684,
+                   872936378118324235]
+    )
+    async def airdrop(self, ctx):
+        async for user in db.get_all_curators(self.bot):
+            url = 'http://POAP.xyz/claim/' + db.pop_compensation_code()
+            await user.send(f'Thank you for your help in advancing Crypto-Goverance research! As a token of our gratitude, please accept this badge that you can add to your crypto wallet! {url}')
+
+        await ctx.reply('Done!')
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        channel = await self.bot.fetch_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+
+        # downloads text file containing POAP claim urls
+        if str(payload.emoji) == '🔗':
+            if message.attachments == []:
+                return logger.debug('Message did not contain a file attachment')
+            else:
+                attachment = message.attachments[0]
+                if attachment.filename.endswith('.txt'):
+                    await attachment.save('temp.txt')
+
+                    poap_codes = []
+                    url_pattern = 'http://POAP.xyz/claim/'
+                    with open('temp.txt') as f:
+                        for line in f.readlines():
+                            if line.startswith(url_pattern):
+                                # extracting code substring to store in db
+                                poap_codes.append(line[len(url_pattern):].rstrip())
+                    
+                    db.add_compensation_codes(poap_codes)
+
+                    return logger.info('Received file and saved it to memory')
+                else:
+                    return logger.debug('Message did not contain a .txt file')
 
 def setup(bot):
     cog = SetupCog(bot)
