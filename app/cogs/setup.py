@@ -77,7 +77,7 @@ class SetupCog(commands.Cog):
                                 # extracting code substring to store in db
                                 poap_codes.append(line[len(url_pattern):].rstrip())
                     
-                    db.add_compensation_codes(poap_codes)
+                    db.insert_compensation_codes(poap_codes)
 
                     return logger.info('Received file and saved it to memory')
                 else:
