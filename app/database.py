@@ -497,6 +497,23 @@ class Database:
     def channel(self, *args, **kwargs) -> Channel:
         return Channel(self.handle, *args, **kwargs)
     
+    # inserts new codes
+    def insert_compensation_codes(self, codes):
+        table = self.handle.table('compensation')
+
+        for code in codes:
+            table.insert({'code': code})
+
+    # removes a code from the list
+    def pop_compensation_code(self):
+        table = self.handle.table('compensation')
+
+        max_code = len(table.all())
+        code = table.get(doc_id=max_code)
+        table.remove(doc_ids=[max_code])
+
+        return code['code']
+    
     async def get_all_curators(self, bot):
         results = self.handle.table(MESSAGES_TABLE_NAME).search(
             where('metadata').curated_by.exists()
