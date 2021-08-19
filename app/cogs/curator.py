@@ -199,13 +199,14 @@ approved={approved_text}
 
     async def send_permission_request(self, message):
         # Send an introduction if we haven't met this person yet.
-        author = db.user(message.author)
-        if not author.have_met:
-            await send_introduction(message.author, message.guild)
-            author.have_met = True
+        # author = db.user(message.author)
+        # if not author.have_met:
+        # await send_introduction(message.author, message.guild)
+        # author.have_met = True
         
         # Send the actual request.
         embed = message_to_embed(message)
+        add_introduction_field(embed, message.guild)
         add_consent_message(embed)
         request = await message.author.send(
             embed=embed,
@@ -271,6 +272,7 @@ approved={approved_text}
         # Send to the approved channel.
         anonymous = (ctx.custom_id == YES_ANONYMOUSLY_CUSTOM_ID)
         await self.send_to_approved(original, anonymous=anonymous)
+        await self.send_to_bridge(original, anonymous=anonymous)
     
     async def send_to_approved(self, message, anonymous=False):
         # Get the approved channel for the originating guild.
@@ -289,6 +291,19 @@ approved={approved_text}
         # Tie original and approved messages together and make it commentable.
         db.message(message).approved_message = approved
         db.message(approved).original_message.add_comment_hook(approved)
+
+    async def send_to_bridge(self, message, anonymous=False):
+        # Get the bridge channel for the originating guild.
+        channel = db.guild(message.guild).bridge_channel
+        if channel is None:
+            return logger.error('Bridge channel for %s is not set',
+                message.guild.id)
+        else:
+            channel = await channel.fetch(self.bot)
+        
+        # Send to the bridge channel.
+        embed = message_to_embed(message, anonymize=anonymous)
+        await channel.send(embed=embed)
 
 def setup(bot):
     cog = CuratorCog(bot)

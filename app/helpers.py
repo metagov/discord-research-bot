@@ -212,7 +212,8 @@ def add_consent_message(embed) -> discord.Embed:
     • Yes, you may quote my post and attribute it to my Discord Handle.
     • You may quote my post anonymously. Do not use my Discord Handle or any other identifying information.
     • No, you may not quote my post in your research.
-Thanks for helping us understand the future of governance!'''
+Thanks for helping us understand the future of governance!''',
+        inline=False
     )
 
     return embed
@@ -241,6 +242,20 @@ async def send_introduction(user, guild):
     logger.debug('Sending introduction to %s from %s', user.id, guild.id)
 
     await user.send(embed=embed)
+
+def add_introduction_field(embed, guild):
+    link = ('https://www.rmit.edu.au/research/centres-collaborations/derc/'
+        'cooperation-through-code/crypto-governance-observatory')
+    
+    embed.add_field(
+        name='👋 Hello from the Crypto-Governance Observatory!',
+        value='We\'re a team of researchers interested in the power of'
+            f' community governance. Find out more about us [here]({link}).'
+            f' You might have noticed our channel in the **{guild.name}**'
+            ' server. Your post was highlighted by another user who thought it'
+            ' was interesting.',
+        inline=False
+    )
 
 async def send_thanks(user, responded_yes, guild):
     """Sends a thank you note to a `user` with different content based on
@@ -288,5 +303,6 @@ async def notify_observer(observer, subject):
 def add_commentable_message(embed):
     embed.add_field(
         name='💬 Commentable',
-        value='Reply to this message to add a comment.'
+        value='Reply to this message to add a comment.',
+        inline=False
     )

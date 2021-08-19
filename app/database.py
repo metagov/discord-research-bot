@@ -358,36 +358,27 @@ class Guild(LiveDocument):
         if guild is not None:
             self.id = guild.id
 
+    class ChannelType(IntEnum):
+        PENDING = 0
+        APPROVED = 1
+        BRIDGE = 2
+
     @property
     def base_query(self):
         return where('guild_id') == self.id
 
-    def set_channel(self, channel, is_pending):
-        """Sets this guild's pending or approved channel.
-
-        :param channel: The new channel.
-        :type channel: Union[discord.abc.GuildChannel, Channel]
-        :param is_pending: If this is pending or approved.
-        :type is_pending: bool
-        """
-        logger.debug('%s channel for guild %s set to %s',
-            'Pending' if is_pending else 'Approved', self.id, channel.id)
+    def set_channel(self, channel, type):
+        logger.debug('Channel (%s) for %s set to %s', type, self.id,
+            channel.id)
 
         self.handle.table(CHANNELS_TABLE_NAME).upsert({
-            'guild_id':   self.id,
-            'is_pending': is_pending,
+            'guild_id': self.id,
+            'type': int(type),
             'channel_id': channel.id
-        }, self.base_query & (where('is_pending') == is_pending))
+        }, self.base_query & (where('type') == int(type)))
     
-    def get_channel(self, is_pending):
-        """Gets this channel's pending or approved channel.
-
-        :param is_pending: If we're looking for pending or approved.
-        :type is_pending: bool
-        :return: The channel document or `None` if not found.
-        :rtype: Optional[Channel]
-        """
-        query = self.base_query & (where('is_pending') == is_pending)
+    def get_channel(self, type):
+        query = self.base_query & (where('type') == int(type))
         result = self.handle.table(CHANNELS_TABLE_NAME).get(query)
         return None if result is None else \
             Channel(self.handle, id=result['channel_id'])
@@ -396,19 +387,27 @@ class Guild(LiveDocument):
 
     @property
     def pending_channel(self):
-        return self.get_channel(is_pending=True)
+        return self.get_channel(Guild.ChannelType.PENDING)
     
     @pending_channel.setter
     def pending_channel(self, new_channel):
-        self.set_channel(new_channel, is_pending=True)
+        self.set_channel(new_channel, Guild.ChannelType.PENDING)
 
     @property
     def approved_channel(self):
-        return self.get_channel(is_pending=False)
+        return self.get_channel(Guild.ChannelType.APPROVED)
     
     @approved_channel.setter
     def approved_channel(self, new_channel):
-        self.set_channel(new_channel, is_pending=False)
+        self.set_channel(new_channel, Guild.ChannelType.APPROVED)
+
+    @property
+    def bridge_channel(self):
+        return self.get_channel(Guild.ChannelType.BRIDGE)
+    
+    @bridge_channel.setter
+    def bridge_channel(self, new_channel):
+        self.set_channel(new_channel, Guild.ChannelType.BRIDGE)
 
 class User(LiveDocument):
     def __init__(self, handle, user=None, id=0):
@@ -497,6 +496,15 @@ class Database:
     
     def channel(self, *args, **kwargs) -> Channel:
         return Channel(self.handle, *args, **kwargs)
+    
+    async def get_all_curators(self, bot):
+        results = self.handle.table(MESSAGES_TABLE_NAME).search(
+            where('metadata').curated_by.exists()
+        )
+
+        for result in results:
+            user_id = result['metadata']['curated_by']['id']
+            yield await bot.fetch_user(user_id)
     
 # Accessible in other modules.
 db = Database(DATABASE_FNAME)

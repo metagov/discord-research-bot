@@ -35,6 +35,7 @@ class SetupCog(commands.Cog):
         # setting channel ids for curation process
         db.guild(ctx.guild).pending_channel = pending
         db.guild(ctx.guild).approved_channel = approved
+        db.guild(ctx.guild).bridge_channel = ctx.channel
         
         db.channel(channel=ctx.channel).group = ctx.guild.name
         db.channel(channel=bridge).group = ctx.guild.name
