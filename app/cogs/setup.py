@@ -42,6 +42,17 @@ class SetupCog(commands.Cog):
         
         await ctx.reply("Done!")
 
+    @cog_ext.cog_slash(
+        name="code",
+        guild_ids=[474736509472473088, 870551183339696138, 870551292525809684,
+                   872936378118324235]
+    )
+    async def airdrop(self, ctx):
+        async for user in db.get_all_curators(self.bot):
+            await user.send(db.pop_compensation_code())
+
+        await ctx.reply('Done!')
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
         channel = await self.bot.fetch_channel(payload.channel_id)
@@ -64,7 +75,7 @@ class SetupCog(commands.Cog):
                                 # extracting code substring to store in db
                                 poap_codes.append(line[len(url_pattern):].rstrip())
                     
-                    print(poap_codes)
+                    db.add_compensation_codes(poap_codes)
 
                     return logger.info('Received file and saved it to memory')
                 else:
