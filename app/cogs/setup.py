@@ -5,7 +5,8 @@ from discord_slash import cog_ext
 from constants import CENTRAL_HUB_ID
 from database import *
 
-from cogs.curator import CuratorCog
+
+logger = logging.getLogger(__name__)
 
 class SetupCog(commands.Cog):
     def __init__(self, bot):
@@ -40,6 +41,34 @@ class SetupCog(commands.Cog):
         db.channel(channel=bridge).group = ctx.guild.name
         
         await ctx.reply("Done!")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        channel = await self.bot.fetch_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+
+        # downloads text file containing POAP claim urls
+        if str(payload.emoji) == '🔗':
+            if message.attachments == []:
+                return logger.debug('Message did not contain a file attachment')
+            else:
+                attachment = message.attachments[0]
+                if attachment.filename.endswith('.txt'):
+                    await attachment.save('temp.txt')
+
+                    poap_codes = []
+                    url_pattern = 'http://POAP.xyz/claim/'
+                    with open('temp.txt') as f:
+                        for line in f.readlines():
+                            if line.startswith(url_pattern):
+                                # extracting code substring to store in db
+                                poap_codes.append(line[len(url_pattern):].rstrip())
+                    
+                    print(poap_codes)
+
+                    return logger.info('Received file and saved it to memory')
+                else:
+                    return logger.debug('Message did not contain a .txt file')
 
 def setup(bot):
     cog = SetupCog(bot)
