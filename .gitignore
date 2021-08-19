@@ -4,6 +4,11 @@ app/curation.json
 app/config.json
 app/messages.db
 app/messages.json
+dev/*
+exports/*
+config.json
+messages.json
+data.json
 
 **/__pycache__
 .vscode

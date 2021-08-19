@@ -1,1 +1,1 @@
-# This file is deliberately empty.
+# Deliberately empty.

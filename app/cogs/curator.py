@@ -1,246 +1,310 @@
-from typing import Text
-from discord.embeds import EmbedProxy, EmptyEmbed
-from discord.reaction import Reaction
-from discord.utils import get
-from discord.ext import commands
-from config import config
-from discord import Guild, TextChannel, RawReactionActionEvent, Message, Member
-from discord_slash.context import ComponentContext, SlashContext
-from discord_slash.model import ButtonStyle
-from discord_slash.utils import manage_components
+from urllib.request import urlopen
+from discord.channel import TextChannel
 from discord_slash import cog_ext
-from utils import message_to_embed
+from discord.ext import commands
 from datetime import datetime
-from discord import utils
-from tinydb import TinyDB
+from database import *
+from helpers import *
 import discord
-import re
+import logging
+import asyncio
 
-def build_database_entry(user: discord.User, content: str, timestamp: datetime,
-    guild: discord.Guild, channel: discord.TextChannel):
-    '''Returns a dictionary to be inserted into the database.'''
-    entry = {
-        'content': content,
-        'timestamp': timestamp.isoformat(),
-        'guild': {
-            '_id': guild.id,
-            'name': guild.name
-        },
-        'channel': {
-            '_id': channel.id,
-            'name': channel.name
-        }
-    }
+logger = logging.getLogger(__name__)
 
-    # Handle the non-anonymous case.
-    if user:
-        entry['author'] = {
-            '_id': user.id,
-            'name': user.name
-        }
-    
-    return entry
+def has_been_curated_before(message) -> bool:
+    """Checks whether or not a message has been curated before.
 
-def build_permission_action_row(disabled=False):
-    # Builds the action row for the permission message.
-    return manage_components.create_actionrow(
-        manage_components.create_button(
-            custom_id='accept',
-            style=ButtonStyle.green,
-            disabled=disabled,
-            label='yes'
-        ),
-
-        manage_components.create_button(
-            custom_id='anon',
-            style=ButtonStyle.blue,
-            disabled=disabled,
-            label='yes, anonymously'
-        ),
-
-        manage_components.create_button(
-            custom_id='decline',
-            style=ButtonStyle.red,
-            disabled=disabled,
-            label='no'
-        ),
-
-        manage_components.create_button(
-            style=ButtonStyle.URL,
-            label='join our server',
-            url='https://discord.com'
-        )
-    )
+    :param message: Any message.
+    :type message: Union[discord.Message, database.Message]
+    :return: Whether or not it has happened.
+    :rtype: bool
+    """
+    return db.message(message).status is not None
 
 class CuratorCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        print('Loaded', self.__class__.__name__)
+    def __init__(self, bot):
         self.bot = bot
 
     @commands.command()
-    @commands.has_role('Curator') # TODO: Make this work in DMs.
-    async def curate(self, ctx: commands.Context, msg: discord.Message):
-        # Manually start curation process.
-        await self.send_to_pending(msg)
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
-        # Triggered when a reaction is added to any message.
-        ch: TextChannel = await self.bot.fetch_channel(payload.channel_id)
-
-        # Ensure we are not in a DM.
-        if not ch.guild:
-            return
-
-        message: Message = await ch.fetch_message(payload.message_id)
-
-        # Only propagate when the reaction count is now 1.
-        reaction: Reaction = get(message.reactions, emoji=payload.emoji.name)
-        if reaction.count != 1:
-            return
-
-        reactor: Member = await ch.guild.fetch_member(payload.user_id)
-
-        # Check for the appropriate emoji.
-        if str(payload.emoji) == '🔭':
-            # Check for the appropriate role.
-            if utils.get(reactor.roles, name='Curator'): # TODO: Same as above.
-                await self.send_to_pending(message)
-
-    async def send_to_pending(self, msg: discord.Message):
-        if 'pending_id' not in config:
-            print('pending_id is not set in the config!')
-            return
-
-        ch: TextChannel = await self.bot.fetch_channel(config['pending_id'])
-
-        # Create "ask for permission" button.
-        action_row = manage_components.create_actionrow(
-            manage_components.create_button(
-                custom_id=f'ask-{msg.author.id}',
-                style=ButtonStyle.green,
-                label='request permission'
-            )
-        )
-
-        await ch.send(embed=message_to_embed(msg), components=[action_row])
-        # Go to on_component for the next step.
-
-    @commands.Cog.listener()
-    async def on_component(self, ctx: ComponentContext):
-        # Triggered on any component interaction.
-        if 'ask-' in ctx.custom_id:
-            embed: discord.Embed = ctx.origin_message.embeds[0]
-            await ctx.origin_message.delete()
-
-            # Ask user for permission.
-            askee_id = int(ctx.custom_id[4:])
-            askee: discord.User = await self.bot.fetch_user(askee_id)
-
-            embed.add_field(
-                name='Consent Message',
-                value=
-                    """We're asking for permission to quote you in our research.
-                    • Yes you may quote my post and attribute it to my Discord Handle
-                    • You may quote my post anonymously, do not use my Discord Handle or any other identifying information
-                    • No, you may not quote my post in your research
-                    Thanks for helping us understand the future of governance!"""
-            )
-
-            action_row = build_permission_action_row()
-            await askee.send(embed=embed, components=[action_row])
+    @commands.check(is_admin)
+    async def quickconfig(self, ctx, pending: discord.TextChannel,
+        approved: discord.TextChannel, guild: discord.Guild=None):
+        """Sets a guild's pending and approved channels. The guild defaults to
+        the guild you send the command in."""
+        if guild is None:
+            guild = ctx.guild
         
-        if 'accept' == ctx.custom_id:
-            embed: discord.Embed = ctx.origin_message.embeds[0]
-            embed.remove_field(0) # removing consent message
+        db.guild(guild).pending_channel = pending
+        db.guild(guild).approved_channel = approved
 
-            action_row = build_permission_action_row(disabled=True)
-            await ctx.origin_message.edit(components=[action_row])
-            await self.send_to_approved(embed)
+        await ctx.message.add_reaction('👍')
+
+    @commands.command()
+    @commands.check(is_admin)
+    async def viewconfig(self, ctx, guild: discord.Guild=None):
+        """Checks a guild's pending and approved channels. The guild defaults to
+        the guild you send the command in."""
+        if guild is None:
+            guild = ctx.guild
+
+        pending = db.guild(guild).pending_channel
+        if pending:
+            pending = await pending.fetch(self.bot)
+        
+        approved = db.guild(guild).approved_channel
+        if approved:
+            approved = await approved.fetch(self.bot)
+
+        pending_text = f'{pending.guild.name} - #{pending.name}' \
+            if pending else 'Not set'
+        approved_text = f'{approved.guild.name} - #{approved.name}' \
+            if approved else 'Not set'
+
+        await ctx.reply(content=f'''pending={pending_text}
+approved={approved_text}     
+''')
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        # Do not proceed if it is not a reply.
+        if message.reference is None:
+            return
+            # return logger.debug('Ignoring non-reply %s/%s',
+            #     message.channel.id, message.id)
             
-        if 'anon' == ctx.custom_id:
-            embed: discord.Embed = ctx.origin_message.embeds[0]
-            embed.remove_field(0) # removing consent message
-            embed.set_author(
-                name=f'anonymous',
-                url=embed.author.url,
-                icon_url='https://i.imgur.com/qbkZFWO.png'
-            )
+        # Do not proceed if it is our own reply.
+        if message.author == self.bot.user:
+            return logger.debug('Ignoring our own reply %s/%s',
+                message.channel.id, message.id)
+        
+        hook = db.message(channel_id=message.reference.channel_id,
+                          message_id=message.reference.message_id)
+        
+        # Do not proceed if the reference is not commentable.
+        if not hook.is_comment_hook:
+            return logger.debug('Message %s/%s is not commentable',
+                hook.channel_id, hook.message_id)
+        
+        hook.original_message.add_comment(message.author, message.content)
+        await message.add_reaction('👍')
 
-            # Propagate the anonymized message.
-            action_row = build_permission_action_row(disabled=True)
-            await ctx.origin_message.edit(components=[action_row])
-            await self.send_to_approved(embed)
-        
-        if 'decline' == ctx.custom_id:
-            action_row = build_permission_action_row(disabled=True)
-            await ctx.origin_message.edit(components=[action_row])
-            # Do nothing else, they have declined.
-        
-        await ctx.send('Done!', delete_after=5)
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        # Do not proceed if it was our own reaction.
+        reactor = await self.bot.fetch_user(payload.user_id)
+        if reactor == self.bot.user:
+            return logger.debug('Ignoring own reaction on %s/%s',
+                payload.channel_id, payload.message_id)
+
+        channel = await self.bot.fetch_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+
+        # Delegate to other method.
+        await self.on_emoji_add(message, str(payload.emoji), reactor)
     
-    async def send_to_approved(self, embed: discord.Embed):
-        print('Sending to approved!')
+    async def on_emoji_add(self, message, emoji, reactor):
+        # Check if it is the required emoji to curate this message.
+        if emoji != get_emoji(self.bot, message):
+            return logger.debug('Emoji %s not correct for %s/%s, returning',
+                emoji, message.channel.id, message.id)
+        
+        # Ensure that we are not in direct messages.
+        if not message.guild:
+            return logger.debug('%s/%s is not from a server, returning',
+                message.channel.id, message.id)
+        
+        # Ensure message has not been curated before.
+        if has_been_curated_before(message):
+            return logger.debug('%s/%s has already been curated before',
+                message.channel.id, message.id)
+        
+        await self.start_curation(message, reactor)
 
-        text = embed.author.url
-        parts = text.split('/')
-        guild_id = int(parts[4])
-        channel_id = int(parts[5])
-        msg_id = int(parts[6])
-
-        # Attempting to retrieve the message link.
-        message: discord.Message = None
-        guild = await self.bot.fetch_guild(guild_id)
-        if guild:
-            channel = await self.bot.fetch_channel(channel_id)                    
-            if channel:
-                try:
-                    message = await channel.fetch_message(msg_id)
-                except discord.errors.Forbidden as e:
-                    if e.code == 50001:
-                        print("I couldn't access that channel")
-            else:
-                print("Channel may have been deleted")
+    async def start_curation(self, message, reactor):
+        # Get the pending channel for this server.
+        channel = db.guild(message.guild).pending_channel
+        if channel is None:
+            return logger.debug('Pending channel for %s is not set',
+                message.guild.id)
         else:
-            print("I couldn't access that server")
+            # Turn document into real channel.
+            channel = await channel.fetch(self.bot)
 
-        # Insert into database.
-        d = TinyDB('messages.json', indent=4)
-        entry = build_database_entry(
-            user=None if embed.author.name == 'anonymous' else message.author,
-            content=message.content,
-            timestamp=message.edited_at or message.created_at,
-            guild=message.guild,
-            channel=message.channel
+        # Avoid curating this message again and add extra metadata.
+        db.message(message).status = MessageStatus.CURATED
+        db.message(message).add_metadata({
+            'curated_by': {
+                'name':          reactor.name,
+                'discriminator': reactor.discriminator,
+                'id':            reactor.id
+            },
+            'curated_at': datetime.utcnow().isoformat()
+        })
+
+        # Send to the pending channel.
+        pending = await channel.send(
+            embed=message_to_embed(message),
+            components=[make_pending_action_row()]
         )
-        d.insert(entry)
 
-        ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
-        await ch.send(embed=embed)
+        # Tie original and pending messages together.
+        db.message(message).pending_message = pending
+    
+    @cog_ext.cog_component(components=[
+        REQUEST_PERMISSION_CUSTOM_ID, 
+        REQUEST_WITH_COMMENT_CUSTOM_ID
+    ])
+    async def on_request_permission_pressed(self, ctx):
+        # Defer immediately to avoid 'This interaction failed'.
+        await ctx.defer(ignore=True)
+
+        # Ensure no one can click this button twice.
+        original = db.message(ctx.origin_message).original_message
+        if original.status != MessageStatus.CURATED:
+            return logger.error('Observer %s tried to request permission'
+                ' twice for %s/%s', ctx.author.id, original.channel_id,
+                original.message_id)
+        else:
+            original.status = MessageStatus.REQUESTED
+
+            # Add extra metadata.
+            original.add_metadata({
+                'requested_by': {
+                    'name':          ctx.author.name,
+                    'discriminator': ctx.author.discriminator,
+                    'id':            ctx.author.id
+                },
+                'requested_at': datetime.utcnow().isoformat()
+            })
+
+            original = await original.fetch(self.bot)
+
+        # Disable the buttons and make the actual request.
+        await disable_pending_action_row(ctx.origin_message)
+        await self.send_permission_request(original)
+
+        # Send commentable message to observer if they want.
+        if ctx.custom_id == REQUEST_WITH_COMMENT_CUSTOM_ID:
+            await self.send_comment_hook(ctx.author, original)
+
+    async def send_comment_hook(self, user, original):
+        """Sends a message to `user` which quotes `original` and explains that,
+        if `user` replies, a comment will be added to `original` in database."""
+        embed = message_to_embed(original)
+        add_commentable_message(embed)
+        hook = await user.send(embed=embed)
+
+        # Register the message that we just sent as commentable.
+        db.message(original).add_comment_hook(hook)
+
+    async def send_permission_request(self, message):
+        # Send an introduction if we haven't met this person yet.
+        # author = db.user(message.author)
+        # if not author.have_met:
+        # await send_introduction(message.author, message.guild)
+        # author.have_met = True
         
+        # Send the actual request.
+        embed = message_to_embed(message)
+        add_introduction_field(embed, message.guild)
+        add_consent_message(embed)
+        request = await message.author.send(
+            embed=embed,
+            components=[make_request_action_row()]
+        )
+
+        # Tie original and request messages together.
+        db.message(message).request_message = request
+
+    @cog_ext.cog_component(components=[
+        YES_CUSTOM_ID,
+        YES_ANONYMOUSLY_CUSTOM_ID,
+        NO_CUSTOM_ID
+    ])
+    async def on_permission_request_fulfilled(self, ctx):
+        # Avoids 'This interaction failed'.
+        await ctx.defer(ignore=True)
+
+        # Ensure button cannot be pressed twice.
+        original = db.message(ctx.origin_message).original_message
+        if db.message(original).status >= MessageStatus.APPROVED:
+
+            # Only works because `MessageStatus.APPROVED` is integer-wise
+            # less than the others.
+            return logger.error('User %s tried to fulfill twice for %s/%s',
+                ctx.author.id, original.channel_id, original.message_id)
         
-    async def message_approved(self, embed: discord.Embed):
-        '''Called when a message should be sent to the approved channel.'''
-        # gd: Guild = await self.bot.fetch_guild(config['guild_id'])
-        ch: TextChannel = await self.bot.fetch_channel(config['approved_id'])
-        # embed.set_footer(text=EmptyEmbed)
-        await self.on_message_approved(embed)
-        await ch.send(embed=embed)
+        # Add extra metadata.
+        original.add_metadata({
+            'fulfilled_at': datetime.utcnow().isoformat()
+        })
 
-    '''Commands to manipulate pending and approved channels.'''
+        # Set the appropriate status and add to database.
+        if ctx.custom_id == YES_CUSTOM_ID:
+            original.status = MessageStatus.APPROVED
+            await original.add_to_database(self.bot)
+        elif ctx.custom_id == YES_ANONYMOUSLY_CUSTOM_ID:
+            original.status = MessageStatus.ANONYMOUS
+            await original.add_to_database(self.bot, anonymize=True)
+        else: # User denied permission.
+            original.status = MessageStatus.DENIED
+        
+        # Disable the buttons and convert to an actual message.
+        await disable_request_action_row(ctx.origin_message)
+        original = await original.fetch(self.bot)
 
-    @cog_ext.cog_subcommand(base='set', name='approved',
-        guild_ids=config['guild_ids'])
-    async def _set_approved(self, ctx: SlashContext):
-        config['approved_id'] = ctx.channel.id
-        await ctx.send('Done!')
+        # Send thanks based on response.
+        if ctx.custom_id == YES_CUSTOM_ID or \
+            ctx.custom_id == YES_ANONYMOUSLY_CUSTOM_ID:
+            await send_thanks(original.author, True, original.guild)
+        else: # User denied permission.
+            await send_thanks(original.author, False, original.guild)
+        
+        # Delete the pending message.
+        pending = await db.message(original).pending_message.fetch(self.bot)
+        await pending.delete()
 
-    @cog_ext.cog_subcommand(base='set', name='pending',
-        guild_ids=config['guild_ids'])
-    async def _set_pending(self, ctx: SlashContext):
-        config['pending_id'] = ctx.channel.id
-        await ctx.send('Done!')
+        # Quit early if user denied permission.
+        if ctx.custom_id == NO_CUSTOM_ID:
+            return logger.info('User %s denied permission for %s/%s',
+                ctx.author.id, original.channel.id, original.id)
+        
+        # Send to the approved channel.
+        anonymous = (ctx.custom_id == YES_ANONYMOUSLY_CUSTOM_ID)
+        await self.send_to_approved(original, anonymous=anonymous)
+        await self.send_to_bridge(original, anonymous=anonymous)
+    
+    async def send_to_approved(self, message, anonymous=False):
+        # Get the approved channel for the originating guild.
+        channel = db.guild(message.guild).approved_channel
+        if channel is None:
+            return logger.error('Approved channel for %s is not set',
+                message.guild.id)
+        else:
+            channel = await channel.fetch(self.bot)
+        
+        # Send to the approved channel.
+        embed = message_to_embed(message, anonymize=anonymous)
+        add_commentable_message(embed)
+        approved = await channel.send(embed=embed)
 
-def setup(bot: commands.Bot):
+        # Tie original and approved messages together and make it commentable.
+        db.message(message).approved_message = approved
+        db.message(approved).original_message.add_comment_hook(approved)
+
+    async def send_to_bridge(self, message, anonymous=False):
+        # Get the bridge channel for the originating guild.
+        channel = db.guild(message.guild).bridge_channel
+        if channel is None:
+            return logger.error('Bridge channel for %s is not set',
+                message.guild.id)
+        else:
+            channel = await channel.fetch(self.bot)
+        
+        # Send to the bridge channel.
+        embed = message_to_embed(message, anonymize=anonymous)
+        await channel.send(embed=embed)
+
+def setup(bot):
     cog = CuratorCog(bot)
     bot.add_cog(cog)
