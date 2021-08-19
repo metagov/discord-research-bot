@@ -43,13 +43,14 @@ class SetupCog(commands.Cog):
         await ctx.reply("Done!")
 
     @cog_ext.cog_slash(
-        name="code",
+        name="airdrop",
         guild_ids=[474736509472473088, 870551183339696138, 870551292525809684,
                    872936378118324235]
     )
     async def airdrop(self, ctx):
         async for user in db.get_all_curators(self.bot):
-            await user.send(db.pop_compensation_code())
+            url = 'http://POAP.xyz/claim/' + db.pop_compensation_code()
+            await user.send(f'Thank you for your help in advancing Crypto-Goverance research! As a token of our gratitude, please accept this badge that you can add to your crypto wallet! {url}')
 
         await ctx.reply('Done!')
 
