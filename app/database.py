@@ -220,9 +220,35 @@ class Message(LiveDocument):
         self.handle.table(COMMENTS_TABLE_NAME).insert({
             'original_cid': self.channel_id,
             'original_mid': self.message_id,
+            'author': {
+                'id': user.id,
+                'name': user.name,
+                'discriminator': user.discriminator
+            },
             'content':      content
         })
     
+    # ...
+
+    @property
+    def comments(self) -> Generator[dict, None, None]:
+        results = self.handle.table(COMMENTS_TABLE_NAME).search(self.base_query)
+        for document in results:
+            # Yields elements that look like:
+            # {
+            #     'author': {
+            #         'id': 0,
+            #         'name': '',
+            #         'discriminator': 0
+            #     },
+            #     'content': ''
+            # }
+
+            yield {
+                'author': document.get('author'),
+                'content': document.get('content')
+            }
+
     # ...
 
     async def add_to_database(self, bot, anonymize=False):
