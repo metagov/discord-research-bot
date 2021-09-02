@@ -27,9 +27,7 @@ class AdminCog(commands.Cog):
     @commands.check(is_admin)
     async def export(self, ctx):
         """Gives the callee all of the curated data."""
-        if ctx.guild:
-            return await ctx.reply('This command must be run in DMs.')
-
+        
         # Show that the command was successfully received.
         await ctx.message.add_reaction('👍')
 
@@ -51,12 +49,9 @@ class AdminCog(commands.Cog):
             # Add to resulting list.
             exported.append(document)
         
-        # Make the folder if it does not exist.
-        folder = Path('exports')
-        folder.mkdir(exist_ok=True)
 
         # Write to a file.
-        filename = folder / f'{datetime.utcnow().isoformat()}.json'
+        filename = 'export.json'
         with open(filename, 'w') as file:
             json.dump(exported, file, indent=4)
 
