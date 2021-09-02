@@ -45,6 +45,9 @@ class SetupCog(commands.Cog):
         name="airdrop"
     )
     async def airdrop(self, ctx):
+        if not db.user(user=ctx.author).is_admin:
+            return await ctx.send('Insufficient permissions!')
+        
         async for user in db.get_all_curators(self.bot):
             url = 'http://POAP.xyz/claim/' + db.pop_compensation_code()
             await user.send(f'Thank you for your help in advancing Crypto-Goverance research! As a token of our gratitude, please accept this badge that you can add to your crypto wallet! {url}')
