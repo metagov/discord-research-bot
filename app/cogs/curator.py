@@ -69,8 +69,6 @@ approved={approved_text}
         # Do not proceed if it is not a reply.
         if message.reference is None:
             return
-            # return logger.debug('Ignoring non-reply %s/%s',
-            #     message.channel.id, message.id)
             
         # Do not proceed if it is our own reply.
         if message.author == self.bot.user:

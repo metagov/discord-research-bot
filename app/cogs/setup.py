@@ -13,9 +13,7 @@ class SetupCog(commands.Cog):
         self.bot = bot
     
     @cog_ext.cog_slash(
-        name="setup",
-        guild_ids=[474736509472473088, 870551183339696138, 870551292525809684,
-                   872936378118324235, 845050172501262337]
+        name="setup"
     )
     async def setup(self, ctx):
         if not db.user(user=ctx.author).is_admin:
@@ -44,9 +42,7 @@ class SetupCog(commands.Cog):
         await ctx.reply("Done!")
 
     @cog_ext.cog_slash(
-        name="airdrop",
-        guild_ids=[474736509472473088, 870551183339696138, 870551292525809684,
-                   872936378118324235, 845050172501262337]
+        name="airdrop"
     )
     async def airdrop(self, ctx):
         async for user in db.get_all_curators(self.bot):
