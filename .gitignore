@@ -9,6 +9,8 @@ exports/*
 config.json
 messages.json
 data.json
+export.json
+temp.txt
 
 **/__pycache__
 .vscode
