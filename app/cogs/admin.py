@@ -48,9 +48,6 @@ class AdminCog(commands.Cog):
         if not is_admin(ctx):
             return await ctx.reply('Insuffient permissions!')
 
-        # Show that the command was successfully received.
-        await ctx.message.add_reaction('👍')
-
         exported = []
         for document in db.handle.table(MESSAGES_TABLE_NAME):
 
