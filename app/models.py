@@ -6,18 +6,9 @@ from enum import Enum
 import discord
 
 
-# class Channel(Document):
-#     id = IntField(required=True, unique_with='type')
-#     guild_id = IntField(default=0)
-
-#     class Type(Enum):
-#         DEFAULT = 'default'
-#         PENDING = 'pending'
-#         FULFILLED = 'fulfilled'
-#         BRIDGE = 'bridge'
-
-#     type = EnumField(Type, default=Type.DEFAULT)
-#     group = StringField(default='default')
+class Channel(Document):
+    id = IntField(required=True)
+    group = StringField(default='default')
 
 
 class Message(Document):
