@@ -113,7 +113,7 @@ def message_to_embed(message, anonymize=False) -> discord.Embed:
 
 def make_pending_action_row(disabled=False) -> dict:
     """Makes the action row for a pending message. The action row contains
-    the buttons i.e., 'Request permission' or 'Request with comment'.
+    the buttons i.e., 'Request permission'.
 
     Example:
 
@@ -129,12 +129,6 @@ def make_pending_action_row(disabled=False) -> dict:
             style=ButtonStyle.blue,
             label='Request permission',
             custom_id=REQUEST_PERMISSION_CUSTOM_ID,
-            disabled=disabled
-        ),
-        create_button(
-            style=ButtonStyle.green,
-            label='Request with comment',
-            custom_id=REQUEST_WITH_COMMENT_CUSTOM_ID,
             disabled=disabled
         )
     )

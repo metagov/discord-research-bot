@@ -160,7 +160,6 @@ approved={approved_text}
 
     @cog_ext.cog_component(components=[
         REQUEST_PERMISSION_CUSTOM_ID,
-        REQUEST_WITH_COMMENT_CUSTOM_ID
     ])
     async def on_request_permission_pressed(self, ctx):
         # Defer immediately to avoid 'This interaction failed'.
@@ -191,9 +190,8 @@ approved={approved_text}
         await disable_pending_action_row(ctx.origin_message)
         await self.send_permission_request(original)
 
-        # Send commentable message to observer if they want.
-        if ctx.custom_id == REQUEST_WITH_COMMENT_CUSTOM_ID:
-            await self.send_comment_hook(ctx.author, original)
+        # Send commentable message by default.
+        await self.send_comment_hook(ctx.author, original)
 
     async def send_comment_hook(self, user, original):
         """Sends a message to `user` which quotes `original` and explains that,
