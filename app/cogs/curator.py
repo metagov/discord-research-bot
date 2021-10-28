@@ -162,7 +162,7 @@ approved={approved_text}
         db.message(message).pending_message = pending
         db.message(message).add_comment_hook(pending)
 
-        print(db.message(message).message_id)
+        # print(db.message(message).message_id)
 
     @cog_ext.cog_component(components=[
         REQUEST_PERMISSION_CUSTOM_ID,
@@ -206,8 +206,8 @@ approved={approved_text}
             embed=embed
         )
 
-        for c in db.message(original).comments:
-            print(c)
+        # for c in db.message(original).comments:
+        #     print(c)
         
         # Send commentable message by default.
         # await self.send_comment_hook(ctx.author, original)
