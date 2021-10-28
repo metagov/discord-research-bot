@@ -1,4 +1,5 @@
 from urllib.request import urlopen
+from discord import message
 from discord.channel import TextChannel
 from discord_slash import cog_ext
 from discord.ext import commands
@@ -149,6 +150,8 @@ approved={approved_text}
             inline=False,
         )
 
+        add_commentable_message(embed)
+
         # Send to the pending channel.
         pending = await channel.send(
             embed=embed,
@@ -157,10 +160,12 @@ approved={approved_text}
 
         # Tie original and pending messages together.
         db.message(message).pending_message = pending
+        db.message(message).add_comment_hook(pending)
+
+        # print(db.message(message).message_id)
 
     @cog_ext.cog_component(components=[
         REQUEST_PERMISSION_CUSTOM_ID,
-        REQUEST_WITH_COMMENT_CUSTOM_ID
     ])
     async def on_request_permission_pressed(self, ctx):
         # Defer immediately to avoid 'This interaction failed'.
@@ -190,10 +195,22 @@ approved={approved_text}
         # Disable the buttons and make the actual request.
         await disable_pending_action_row(ctx.origin_message)
         await self.send_permission_request(original)
+        
+        comment = next(db.message(original).comments)
+        embed=discord.Embed(
+            title="A researcher has left the following comment:",
+            description=comment['content']
+        )
 
-        # Send commentable message to observer if they want.
-        if ctx.custom_id == REQUEST_WITH_COMMENT_CUSTOM_ID:
-            await self.send_comment_hook(ctx.author, original)
+        await ctx.author.send(
+            embed=embed
+        )
+
+        # for c in db.message(original).comments:
+        #     print(c)
+        
+        # Send commentable message by default.
+        # await self.send_comment_hook(ctx.author, original)
 
     async def send_comment_hook(self, user, original):
         """Sends a message to `user` which quotes `original` and explains that,
