@@ -39,10 +39,17 @@ class AdminCog(commands.Cog):
         await ctx.reply('Done!')
 
     @cog_ext.cog_slash(
-        name='export',
-        description='Gives the callee all of the curated data.'
+        name='export_csv',
+        description='Gives the callee curated data in csv format.'
     )
-    async def export(self, ctx):
+    async def export_csv(self, ctx):
+        ...
+
+    @cog_ext.cog_slash(
+        name='export_json',
+        description='Gives the callee curated data in json format.'
+    )
+    async def export_json(self, ctx):
         """Gives the callee all of the curated data."""
         # Check if author is an admin.
         if not is_admin(ctx):
