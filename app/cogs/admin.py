@@ -62,7 +62,7 @@ class AdminCog(commands.Cog):
     @cog_ext.cog_slash(
         name='export_csv',
         description='Gives the callee curated data in csv format.',
-        guild_ids=[474736509472473088]
+        guild_ids=[474736509472473088, 845050172501262337]
     )
     async def export_csv(self, ctx):
         print("Fulfilling export csv request")
