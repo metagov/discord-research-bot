@@ -1,4 +1,4 @@
-import json
+import json, csv
 from discord.ext import commands
 from discord_slash.utils.manage_commands import create_option
 from constants import DEVELOPER_IDS
@@ -38,23 +38,7 @@ class AdminCog(commands.Cog):
         db.user(user).is_admin = not db.user(user).is_admin
         await ctx.reply('Done!')
 
-    @cog_ext.cog_slash(
-        name='export_csv',
-        description='Gives the callee curated data in csv format.'
-    )
-    async def export_csv(self, ctx):
-        ...
-
-    @cog_ext.cog_slash(
-        name='export_json',
-        description='Gives the callee curated data in json format.'
-    )
-    async def export_json(self, ctx):
-        """Gives the callee all of the curated data."""
-        # Check if author is an admin.
-        if not is_admin(ctx):
-            return await ctx.reply('Insuffient permissions!')
-
+    def export_messages(self):
         exported = []
         for document in db.handle.table(MESSAGES_TABLE_NAME):
 
@@ -73,6 +57,61 @@ class AdminCog(commands.Cog):
             # Add to resulting list.
             exported.append(document)
         
+        return exported
+
+    @cog_ext.cog_slash(
+        name='export_csv',
+        description='Gives the callee curated data in csv format.',
+        guild_ids=[474736509472473088]
+    )
+    async def export_csv(self, ctx):
+        print("Fulfilling export csv request")
+
+        exported = self.export_messages()
+
+        filename = 'export.csv'
+        with open(filename, 'w', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(
+                ['id', 'approved', 'author', 'content', 'guild', 'channel', 'curator', 'requester']
+            )
+
+            for msg in exported:
+                if 'content' in msg:
+                    writer.writerow([
+                        msg['original_mid'],
+                        True,
+                        msg['author']['name'].strip() if 'author' in msg else '',
+                        msg['content'].strip(),
+                        msg['guild']['name'].strip(),
+                        msg['channel']['name'].strip(),
+                        msg['metadata']['curated_by']['name'].strip(),
+                        msg['metadata']['requested_by']['name'].strip()
+                    ])
+
+                else:
+                    writer.writerow([
+                        msg['original_mid'],
+                        False,
+                        '','','','','',''
+                    ])
+        
+        await ctx.send(file=discord.File("export.csv"))
+
+    @cog_ext.cog_slash(
+        name='export_json',
+        description='Gives the callee curated data in json format.'
+    )
+    async def export_json(self, ctx):
+        """Gives the callee all of the curated data."""
+
+        print("Fulfilling export json request")
+
+        # Check if author is an admin.
+        if not is_admin(ctx):
+            return await ctx.reply('Insuffient permissions!')
+
+        exported = self.export_messages()
 
         # Write to a file.
         filename = 'export.json'
