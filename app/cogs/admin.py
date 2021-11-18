@@ -61,8 +61,7 @@ class AdminCog(commands.Cog):
 
     @cog_ext.cog_slash(
         name='export_csv',
-        description='Gives the callee curated data in csv format.',
-        guild_ids=[474736509472473088, 845050172501262337]
+        description='Gives the callee curated data in csv format.'
     )
     async def export_csv(self, ctx):
         print("Fulfilling export csv request")
@@ -73,7 +72,7 @@ class AdminCog(commands.Cog):
         with open(filename, 'w', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(
-                ['id', 'approved', 'author', 'content', 'guild', 'channel', 'curator', 'requester']
+                ['id', 'approved', 'author', 'content', 'guild', 'channel', 'curator', 'curation_date', 'requester', 'request_date']
             )
 
             for msg in exported:
@@ -86,7 +85,9 @@ class AdminCog(commands.Cog):
                         msg['guild']['name'].strip(),
                         msg['channel']['name'].strip(),
                         msg['metadata']['curated_by']['name'].strip(),
-                        msg['metadata']['requested_by']['name'].strip()
+                        msg['metadata']['curated_at'].strip(),
+                        msg['metadata']['requested_by']['name'].strip(),
+                        msg['metadata']['requested_at'].strip()
                     ])
 
                 else:
