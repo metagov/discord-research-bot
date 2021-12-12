@@ -266,6 +266,8 @@ class Message(LiveDocument):
             'author_hash':  user_to_hash(message.author),
             'added_at':     datetime.utcnow().isoformat(),
             'content':      message.content,
+            'created_at':   message.created_at.isoformat(),
+            'edited_at':    message.edited_at.isoformat() if message.edited_at else None,
 
             # ...
             'channel': {
