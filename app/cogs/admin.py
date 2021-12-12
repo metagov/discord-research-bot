@@ -72,7 +72,7 @@ class AdminCog(commands.Cog):
         with open(filename, 'w', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(
-                ['id', 'approved', 'author', 'content', 'guild', 'channel', 'curator', 'curation_date', 'requester', 'request_date']
+                ['id', 'approved', 'author', 'content', 'created_at', 'edited_at', 'guild', 'channel', 'curator', 'curation_date', 'requester', 'request_date']
             )
 
             for msg in exported:
@@ -82,6 +82,8 @@ class AdminCog(commands.Cog):
                         True,
                         msg['author']['name'].strip() if 'author' in msg else '',
                         msg['content'].strip(),
+                        msg['created_at'],
+                        msg['edited_at'],
                         msg['guild']['name'].strip(),
                         msg['channel']['name'].strip(),
                         msg['metadata']['curated_by']['name'].strip(),
@@ -94,7 +96,7 @@ class AdminCog(commands.Cog):
                     writer.writerow([
                         msg['original_mid'],
                         False,
-                        '','','','','',''
+                        '','','','','','','',''
                     ])
         
         await ctx.send(file=discord.File("export.csv"))
