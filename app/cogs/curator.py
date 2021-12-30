@@ -1,14 +1,16 @@
-from datetime import datetime
 from core.helpers import create_pending_arow, message_to_embed
-from models.alternate import Alternate, AlternateType
-from models.message import Message, MessageStatus
-from models.special import Special, SpecialType
 from discord_slash import ComponentContext
 from core.extension import Extension
 from discord_slash import cog_ext
 from discord.ext import commands
-from models.member import Member
+from datetime import datetime
 import discord
+
+from models.alternate import Alternate, AlternateType
+from models.message import Message, MessageStatus
+from models.special import Special, SpecialType
+from models.member import Member
+from models.user import User
 
 
 class Curator(Extension):
@@ -17,6 +19,7 @@ class Curator(Extension):
         channel = await self.bot.fetch_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
 
+        # Notice that bot messages can be curated.
         checks = [
             message.guild is not None,
             str(payload.emoji) == '🔭',
@@ -26,13 +29,15 @@ class Curator(Extension):
             await self.curate(message, payload.member)
 
     async def curate(self, message, curator) -> None:
-        original_document   = Message.record(message)
-        curator_document    = Member.record(curator)
+        original_document = Message.record(message)
+        curator_document = Member.record(curator)
 
+        # Add curator to list of curators if not already there.
         if curator_document not in original_document.curated_by:
             original_document.curated_by.append(curator_document)
             original_document.save()
 
+        # Get the pending channel for the guild the message is in.
         pending_channel = await Special.get(
             self.bot,
             original_document.guild,
@@ -42,8 +47,9 @@ class Curator(Extension):
         if original_document.status != MessageStatus.DEFAULT:
             raise ValueError('Message is already curated: %s' % message.id)
 
-        original_document.status        = MessageStatus.CURATED
-        original_document.curated_at    = datetime.utcnow()
+        # Ensure the message cannot be curated more than once.
+        original_document.status = MessageStatus.CURATED
+        original_document.curated_at = datetime.utcnow()
         original_document.save()
 
         embed = message_to_embed(message)
@@ -55,30 +61,70 @@ class Curator(Extension):
             ),
         )
 
-        self.bot.logger.info('Pending message sent for %d', message.id)
+        self.bot.logger.info('Sending pending message for 0x%x', message.id)
         pending_message = await pending_channel.send(
             embed=embed,
             components=[create_pending_arow()],
         )
 
-        Alternate.set(message, pending_message, AlternateType.PENDING)
+        # Associate the pending message with the original message, so we can
+        # recover it when a researcher clicks the button.
+        Alternate.set(
+            message,
+            pending_message,
+            AlternateType.PENDING,
+        )
 
     @cog_ext.cog_component(components='request')
     async def on_request_pressed(self, ctx: ComponentContext) -> None:
-        # TODO: Better syntax.
-        alternate_document = Alternate.objects(
-            message_id=ctx.origin_message_id,
-            atype=AlternateType.PENDING,
-        ).first()
+        alternate_document = Alternate.find(
+            AlternateType.PENDING,
+            ctx.origin_message_id,
+        )
 
+        # If the above does not throw an exception, then check it here.
         if not alternate_document:
-            raise ValueError('No alternate document %d with type %s',
+            raise ValueError('No alternate document %d with type %s.',
                              ctx.origin_message_id, AlternateType.PENDING)
 
-        original_document   = alternate_document.original
-        original_message    = await original_document.fetch(self.bot)
-        print(original_message)
-        # TODO: Bruh.
+        original_document = alternate_document.original
+        original_message = await original_document.fetch(self.bot)
+
+        # Handle the whole thing separately if the author is a bot.
+        if original_message.bot:
+            await self.on_message_approved(original_message, False)
+            return
+
+    async def on_message_fulfilled(self, original_message, anonymous) -> None:
+        original_document = Message.record(original_message)
+
+        # Get the fulfilled channel for the guild the message is in.
+        fulfilled_channel = await Special.get(
+            self.bot,
+            original_document.guild,
+            SpecialType.FULFILLED,
+        )
+
+        # Update fields on the document for the original message.
+        original_document.fulfilled_at = datetime.utcnow()
+        original_document.status = MessageStatus.ANONYMOUS
+
+        if not anonymous:
+            original_document.author = Member.record(original_message.author)
+            original_document.status = MessageStatus.APPROVED
+
+        original_document.save()
+
+        # Create a new message in the fulfilled channel.
+        embed = message_to_embed(original_message, anonymous)
+        fulfilled_message = await fulfilled_channel.send(embed=embed)
+
+        # Associate the fulfilled message with the original message.
+        Alternate.set(
+            original_message,
+            fulfilled_message,
+            AlternateType.FULFILLED,
+        )
 
     # Commands
     # ========

@@ -44,3 +44,14 @@ class Alternate(Document):
             set_on_insert__original=original,
             set_on_insert__atype=atype,
         )
+
+    @classmethod
+    def find(cls, atype, message_id) -> 'Alternate':
+        """
+        :type atype:        AlternateType
+        :type message_id:   int
+        """
+        return cls.objects(
+            atype=atype,
+            message_id=message_id,
+        ).first()

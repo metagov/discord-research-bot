@@ -26,7 +26,7 @@ class Settings:
 
     def save(self) -> None:
         with open(self.DEFAULT_FILENAME, 'w') as file:
-            json.dump(self.__dict__, file)
+            json.dump(self.__dict__, file, indent=4)
 
     def clear(self) -> None:
         self.__dict__ = self.DEFAULT_SETTINGS.copy()

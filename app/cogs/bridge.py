@@ -33,7 +33,7 @@ class Bridge(Extension):
 
         return channels
 
-    async def replicate(self, channel: discord.TextChannel, message: discord.Message) -> None:
+    async def replicate(self, channel: discord.TextChannel, message) -> None:
         webhook = await channel.create_webhook(name=message.author.name)
 
         await webhook.send(
@@ -45,15 +45,26 @@ class Bridge(Extension):
 
         await webhook.delete()
 
+    # Public
+    # ======
+
+    def set_channel_group(self, channel, group) -> None:
+        channel_document = Channel.record(channel)
+        channel_document.group = group
+        channel_document.save()
+
+    def reset_channel_group(self, channel) -> None:
+        channel_document = Channel.record(channel)
+        channel_document.group = None
+        channel_document.save()
+
     # Commands
     # ========
 
     @commands.command()
     @commands.is_owner()
     async def sgroup(self, ctx, *, group: str) -> None:
-        channel_document = Channel.record(ctx.channel)
-        channel_document.group = group
-        channel_document.save()
+        self.set_channel_group(ctx.channel, group)
         await ctx.send('Done!')
 
 
