@@ -22,7 +22,7 @@ class Settings:
                 changes = json.load(file)
                 self.__dict__.update(changes)
         except FileNotFoundError:
-            pass
+            self.save()
 
     def save(self) -> None:
         with open(self.DEFAULT_FILENAME, 'w') as file:
