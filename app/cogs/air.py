@@ -36,6 +36,10 @@ class Air(Extension):
 
         while self.delete_queue:
             to_delete = self.delete_queue.pop()
+            to_delete.deleted = True
+            record = self.table.update(to_delete.airtable_id, to_delete)
+            
+            to_delete.save()
 
 
 

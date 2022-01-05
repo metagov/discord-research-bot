@@ -23,7 +23,7 @@ class Curator(Extension):
     async def on_raw_reaction_add(self, payload) -> None:
         channel = await self.bot.fetch_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        if (message.guild is not None) and str(payload.emoji) == '🔭':
+        if (message.guild is not None) and (str(payload.emoji) == "🔭"):
             await self.curate(message, payload.member)
 
     async def curate(self, ogmsg, curator) -> None:
@@ -137,6 +137,7 @@ class Curator(Extension):
     async def on_message_fulfilled(self, ogmsg, anonymous, ogmsg_doc=None) -> None:
         ogmsg_doc = ogmsg_doc or Message.record(ogmsg)
         ogmsg = ogmsg or await ogmsg_doc.fetch(self.bot)
+        print(ogmsg)
 
         # Get the fulfilled channel for the guild the message is in.
         fulfilled_channel = await Special.get(
