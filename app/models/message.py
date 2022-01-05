@@ -56,6 +56,7 @@ class Message(Document, Mirror):
     fulfilled_at    = DateTimeField(default=None)
     author          = ReferenceField(Member, default=None, **C)
     status          = EnumField(MessageStatus, default=MessageStatus.DEFAULT)
+    airtable_id     = IntField(default=None)
 
     @classmethod
     def record(cls, message, guild=None, channel=None) -> 'Message':
@@ -99,6 +100,7 @@ class Message(Document, Mirror):
             set_on_insert__fulfilled_at=None,
             set_on_insert__author=None,
             set_on_insert__status=MessageStatus.DEFAULT,
+            set_on_insert__airtable_id=None
         )
 
     async def fetch(self, bot) -> discord.Message:

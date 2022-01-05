@@ -8,11 +8,10 @@ class Admin(Extension):
     def __init__(self, bot):
         self.bot = bot
 
-    # @cog_ext.cog_slash(
-    #     name='setup',
-    #     description='Initializes Telescope and enables text channel bridge'
-    # )
-    @commands.command()
+    @cog_ext.cog_slash(
+        name='setup',
+        description='Initializes Telescope and enables text channel bridge'
+    )
     async def setup(self, ctx):
         observatory = self.bot.get_guild(self.bot.settings.observatory)
 
