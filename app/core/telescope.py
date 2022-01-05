@@ -24,12 +24,12 @@ class Telescope(commands.Bot):
             airtable=kwargs.get('airtable_token'),
         )
 
+        # A place to keep all of our settings.
+        self.settings = kwargs.pop('settings')
+
         # Automatically load all of our extensions.
         for _, name, _ in self.__iter_namespace(cogs):
             self.load_extension(name)
-
-        # A place to keep all of our settings.
-        self.settings = kwargs.pop('settings')
 
     @classmethod
     def __iter_namespace(cls, ns_pkg) -> Iterator:

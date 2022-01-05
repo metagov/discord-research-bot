@@ -8,6 +8,8 @@ class Settings:
         'observatory': 0,
         'guilds': [],
         'global': False,
+        'base_id': '',
+        'table_name': ''
     }
 
     def __init__(self) -> None:
