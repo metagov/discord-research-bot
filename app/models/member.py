@@ -8,6 +8,8 @@ from mongoengine.fields import (
 from mongoengine.document import Document
 from mongoengine import CASCADE
 from datetime import datetime
+import discord
+import logging
 
 from .mirror import Mirror
 from .guild import Guild
@@ -16,17 +18,18 @@ from .role import Role
 
 # To keep proper indentation-level.
 revcas = {'reverse_delete_rule': CASCADE}
+logger = logging.getLogger(__name__)
 
 
 class Member(Document, Mirror):
-    guild       = ReferenceField(Guild, required=True, **revcas)
-    user        = ReferenceField(User, required=True, **revcas)
-    joined_at   = DateTimeField(required=True)
-    roles       = EmbeddedDocumentListField(Role, default=list)
+    guild = ReferenceField(Guild, required=True, **revcas)
+    user = ReferenceField(User, required=True, **revcas)
+    joined_at = DateTimeField(required=True)
+    roles = EmbeddedDocumentListField(Role, default=list)
 
     # The following are not required.
-    updated_at  = DateTimeField(default=datetime.utcnow)
-    nick        = StringField(default=None)
+    updated_at = DateTimeField(default=datetime.utcnow)
+    nick = StringField(default=None)
 
     @classmethod
     def record(cls, member, guild=None, user=None) -> 'Member':
@@ -40,6 +43,11 @@ class Member(Document, Mirror):
 
         if (guild is not None) and not isinstance(guild, Guild):
             raise TypeError(f'Expected `Guild`, got `{type(guild).__name__}`.')
+
+        if not isinstance(member, discord.Member):
+            logger.warning(f'Expected `discord.Member`, got `%s`.',
+                           type(member).__name__)
+            return
 
         # TODO: Investigate solution that includes ``default`` from above.
         return cls.objects(guild=guild, user=user).modify(
