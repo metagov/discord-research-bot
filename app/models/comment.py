@@ -1,10 +1,8 @@
 from mongoengine.fields import (
-    DateTimeField,
-    EnumField,
-    IntField,
     ReferenceField,
-    ListField,
+    DateTimeField,
     StringField,
+    IntField,
 )
 
 from mongoengine import CASCADE, PULL, NULLIFY
@@ -20,7 +18,6 @@ from .member import Member
 from .mirror import Mirror
 from .guild import Guild
 from .user import User
-
 
 # To keep proper indentation-level.
 C = {'reverse_delete_rule': CASCADE}
@@ -45,13 +42,15 @@ class Comment(Document):
         :type comment:  discord.Message
         :type user:     Union[discord.User, User] | None
         """
+        # Turn ``discord.Message`` into ``Message`` so it can be referenced.
         if isinstance(original, discord.Message):
             original = Message.record(original)
 
         if not isinstance(comment, discord.Message):
             raise ValueError("Expected discord.Message, got %s",
                              type(comment).__name__)
-                
+        
+        # Turn ``discord.User`` into ``User`` so it can be referenced.
         if not isinstance(user, User):
             user = User.record(user or original.author)
 

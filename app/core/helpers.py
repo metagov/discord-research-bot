@@ -121,34 +121,27 @@ def create_pending_arow(disabled: bool = False) -> dict:
 
 def create_request_arow(disabled: bool = False) -> dict:
     return create_actionrow(
-        create_select(
-            options=[
-                create_select_option(
-                    label='No, just this once',
-                    value='no',
-                    default=True,
-                    description='Random description here',
-                ),
-                create_select_option(
-                    label='No, forever',
-                    value='nofor',
-                ),
-                create_select_option(
-                    label='Anonymously, just this once',
-                    value='anon',
-                ),
-                create_select_option(
-                    label='Anonymously, forever',
-                    value='anonfor'
-                ),
-                create_select_option(
-                    label='Yes, just this once',
-                    value='yes',
-                ),
-                create_select_option(
-                    label='Yes, forever',
-                    value='yesfor',
-                ),
-            ]
-        )
+        create_button(
+            style=ButtonStyle.green,
+            label='Yes',
+            custom_id='yes',
+            disabled=disabled
+        ),
+        create_button(
+            style=ButtonStyle.gray,
+            label='Yes, anonymously',
+            custom_id='anonymous',
+            disabled=disabled
+        ),
+        create_button(
+            style=ButtonStyle.red,
+            label='No',
+            custom_id='no',
+            disabled=disabled
+        ),
+        # create_button(
+        #     style=ButtonStyle.URL,
+        #     label='Join our server',
+        #     url='https://discord.com/'
+        # ),
     )

@@ -1,4 +1,10 @@
-from mongoengine.fields import DateTimeField, EnumField, StringField, IntField
+from mongoengine.fields import (
+    DateTimeField,
+    StringField,
+    EnumField,
+    IntField,
+)
+
 from mongoengine.document import Document
 from core.helpers import user_to_hash
 from datetime import datetime

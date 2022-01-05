@@ -1,10 +1,11 @@
 from mongoengine.fields import (
-    DateTimeField,
-    EnumField,
-    IntField,
     ReferenceField,
-    ListField,
+    DateTimeField,
+    BooleanField,
     StringField,
+    EnumField,
+    ListField,
+    IntField,
 )
 
 from mongoengine import CASCADE, PULL, NULLIFY
@@ -21,7 +22,6 @@ from .mirror import Mirror
 from .guild import Guild
 from .user import User
 
-
 # To keep proper indentation-level.
 C = {'reverse_delete_rule': CASCADE}
 N = {'reverse_delete_rule': NULLIFY}
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class MessageStatus(Enum):
-    DEFAULT         = 'default'
+    CURATED         = 'curated'
     PENDING         = 'pending'
     REQUESTED       = 'requested'
     APPROVED        = 'approved'
@@ -55,7 +55,8 @@ class Message(Document, Mirror):
     requested_at    = DateTimeField(default=None)
     fulfilled_at    = DateTimeField(default=None)
     author          = ReferenceField(Member, default=None, **C)
-    status          = EnumField(MessageStatus, default=MessageStatus.DEFAULT)
+    status          = EnumField(MessageStatus, default=MessageStatus.CURATED)
+    deleted         = BooleanField(default=False)
 
     @classmethod
     def record(cls, message, guild=None, channel=None) -> 'Message':
@@ -66,12 +67,11 @@ class Message(Document, Mirror):
         :type channel:  Optional[Union[discord.TextChannel, Channel]]
         :rtype:         Message
         """
-        
         assert message.guild, "Cannot record direct messages!"
 
         if not isinstance(guild, Guild):
             guild = Guild.record(guild or message.guild)
-        
+
         if not isinstance(channel, Channel):
             channel = Channel.record(channel or message.channel, guild=guild)
 
@@ -98,7 +98,8 @@ class Message(Document, Mirror):
             set_on_insert__requested_at=None,
             set_on_insert__fulfilled_at=None,
             set_on_insert__author=None,
-            set_on_insert__status=MessageStatus.DEFAULT,
+            set_on_insert__status=MessageStatus.CURATED,
+            set_on_insert__deleted=False,
         )
 
     async def fetch(self, bot) -> discord.Message:
@@ -107,6 +108,13 @@ class Message(Document, Mirror):
         try:
             return await channel.fetch_message(self.id)
         except Exception as exception:
-            logger.warning('Message %d no longer exists!', self.id)
-            self.delete()
+            logger.warning('Message (%d/%d) no longer exists!',
+                           channel.id, self.id)
+
+            # Mark this message document as deleted and save it. Note that if
+            # the channel was deleted, and this is why we cannot fetch the
+            # message, it will appear as if the message was deleted.
+            self.deleted = True
+            self.save()
+
             raise exception

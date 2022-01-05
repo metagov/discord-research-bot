@@ -1,4 +1,9 @@
-from core.helpers import create_pending_arow, message_to_embed
+from core.helpers import (
+    create_pending_arow,
+    create_request_arow,
+    message_to_embed,
+)
+
 from discord_slash import ComponentContext
 from core.extension import Extension
 from discord_slash import cog_ext
@@ -9,8 +14,8 @@ import discord
 from models.alternate import Alternate, AlternateType
 from models.message import Message, MessageStatus
 from models.special import Special, SpecialType
+from models.user import User, Choice
 from models.member import Member
-from models.user import User
 
 
 class Curator(Extension):
@@ -18,113 +23,165 @@ class Curator(Extension):
     async def on_raw_reaction_add(self, payload) -> None:
         channel = await self.bot.fetch_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-
-        # Notice that bot messages can be curated.
-        checks = [
-            message.guild is not None,
-            str(payload.emoji) == '🔭',
-        ]
-
-        if all(checks):
+        if (message.guild is not None) and str(payload.emoji) == '🔭':
             await self.curate(message, payload.member)
 
-    async def curate(self, message, curator) -> None:
-        original_document = Message.record(message)
-        curator_document = Member.record(curator)
+    async def curate(self, ogmsg, curator) -> None:
+        ogmsg_doc = Message.record(ogmsg)
+        curdoc = Member.record(curator)
 
         # Add curator to list of curators if not already there.
-        if curator_document not in original_document.curated_by:
-            original_document.curated_by.append(curator_document)
-            original_document.save()
+        if curdoc not in ogmsg_doc.curated_by:
+            ogmsg_doc.curated_by.append(curdoc)
+            ogmsg_doc.save()
 
         # Get the pending channel for the guild the message is in.
-        pending_channel = await Special.get(
-            self.bot,
-            original_document.guild,
-            SpecialType.PENDING,
-        )
+        pendchan = await Special.get(self.bot, ogmsg_doc.guild, SpecialType.PENDING)
+        if ogmsg_doc.status != MessageStatus.CURATED:
+            raise ValueError('Message is already curated: %s' % ogmsg.id)
 
-        if original_document.status != MessageStatus.DEFAULT:
-            raise ValueError('Message is already curated: %s' % message.id)
+        # Update fields on original message document.
+        ogmsg_doc.status = MessageStatus.CURATED
+        ogmsg_doc.curated_at = datetime.utcnow()
+        ogmsg_doc.save()
 
-        # Ensure the message cannot be curated more than once.
-        original_document.status = MessageStatus.CURATED
-        original_document.curated_at = datetime.utcnow()
-        original_document.save()
+        ogmsg_embed = message_to_embed(ogmsg)
+        # ogmsg_embed.add_field(
+        #     name='Note',
+        #     value=(
+        #         'If you want to request with a comment, reply to this'
+        #         ' message before clicking the button.'
+        #     ),
+        # )
 
-        embed = message_to_embed(message)
-        embed.add_field(
-            name='Note',
-            value=(
-                'If you want to request with a comment, reply to this'
-                ' message before clicking the button.'
-            ),
-        )
-
-        self.bot.logger.info('Sending pending message for 0x%x', message.id)
-        pending_message = await pending_channel.send(
-            embed=embed,
+        self.bot.logger.info("Sending pending message for %s.", ogmsg)
+        pendmsg = await pendchan.send(
+            embed=ogmsg_embed,
             components=[create_pending_arow()],
         )
 
-        # Associate the pending message with the original message, so we can
-        # recover it when a researcher clicks the button.
-        Alternate.set(
-            message,
-            pending_message,
-            AlternateType.PENDING,
-        )
+        # Associate the pending message with the original message.
+        Alternate.set(ogmsg_doc, pendmsg, AlternateType.PENDING)
 
     @cog_ext.cog_component(components='request')
     async def on_request_pressed(self, ctx: ComponentContext) -> None:
-        alternate_document = Alternate.find(
+        # Disable the buttons on the pending message.
+        await ctx.edit_origin(components=[create_pending_arow(disabled=True)])
+
+        # This message is a pending message, find its document.
+        pendmsg_doc = Alternate.find(
             AlternateType.PENDING,
             ctx.origin_message_id,
         )
 
         # If the above does not throw an exception, then check it here.
-        if not alternate_document:
-            raise ValueError('No alternate document %d with type %s.',
+        if not pendmsg_doc:
+            raise ValueError('No alternate document (%d) with type %s.',
                              ctx.origin_message_id, AlternateType.PENDING)
 
-        original_document = alternate_document.original
-        original_message = await original_document.fetch(self.bot)
+        # Find the message the pending message is referring to.
+        ogmsg_doc = pendmsg_doc.original
+        ogmsg = await ogmsg_doc.fetch(self.bot)
+        authdoc = User.record(ogmsg.author)
 
         # Handle the whole thing separately if the author is a bot.
-        if original_message.bot:
-            await self.on_message_approved(original_message, False)
+        if ogmsg.author.bot:
+            await self.on_message_approved(ogmsg, False)
             return
 
-    async def on_message_fulfilled(self, original_message, anonymous) -> None:
-        original_document = Message.record(original_message)
+        # If the author hasn't decided, send a request message.
+        if authdoc.choice == Choice.UNDECIDED:
+            await self.on_request_permission(ogmsg_doc, ogmsg, ctx.author)
+            return
+
+    async def on_request_permission(self, ogmsg_doc, ogmsg, reqr) -> None:
+        self.bot.logger.info("%s is requesting permission to curate %s from %s.",
+                             reqr, ogmsg, ogmsg.author)
+
+        # Change the status of the message document.
+        ogmsg_doc.status = MessageStatus.REQUESTED
+        ogmsg_doc.requested_at = datetime.utcnow()
+        ogmsg_doc.requested_by = User.record(reqr)
+        ogmsg_doc.save()
+
+        # Send the request message to the author.
+        reqmsg = await ogmsg.author.send(
+            embed=message_to_embed(ogmsg),
+            components=[create_request_arow()],
+        )
+
+        # Associate the request message with the original message.
+        Alternate.set(ogmsg_doc, reqmsg, AlternateType.REQUEST)
+
+    async def on_delete_pending_message(self, ogmsg_doc, ogmsg) -> None:
+        self.bot.logger.info("Deleting pending message for %s.", ogmsg)
+
+        # Find the alternate document corresponding to the pending message.
+        pendmsg_doc = Alternate.find_by_original(
+            ogmsg_doc,
+            AlternateType.PENDING,
+        )
+
+        # Silently fail if the alternate document is not found.
+        if not pendmsg_doc:
+            return
+
+        # Turn the pending message document into a message and delete it.
+        pendmsg = await pendmsg_doc.fetch(self.bot)
+        await pendmsg.delete()
+
+        # Update the pending message document.
+        pendmsg_doc.deleted = True
+        pendmsg_doc.save()
+
+    async def on_message_fulfilled(self, ogmsg, anonymous, ogmsg_doc=None) -> None:
+        ogmsg_doc = ogmsg_doc or Message.record(ogmsg)
+        ogmsg = ogmsg or await ogmsg_doc.fetch(self.bot)
 
         # Get the fulfilled channel for the guild the message is in.
         fulfilled_channel = await Special.get(
             self.bot,
-            original_document.guild,
+            ogmsg_doc.guild,
             SpecialType.FULFILLED,
         )
 
         # Update fields on the document for the original message.
-        original_document.fulfilled_at = datetime.utcnow()
-        original_document.status = MessageStatus.ANONYMOUS
-
+        ogmsg_doc.fulfilled_at = datetime.utcnow()
+        ogmsg_doc.status = MessageStatus.ANONYMOUS
         if not anonymous:
-            original_document.author = Member.record(original_message.author)
-            original_document.status = MessageStatus.APPROVED
-
-        original_document.save()
+            ogmsg_doc.author = Member.record(ogmsg.author)
+            ogmsg_doc.status = MessageStatus.APPROVED
+        ogmsg_doc.save()
 
         # Create a new message in the fulfilled channel.
-        embed = message_to_embed(original_message, anonymous)
-        fulfilled_message = await fulfilled_channel.send(embed=embed)
+        embed = message_to_embed(ogmsg, anonymous)
+        fulfmsg = await fulfilled_channel.send(embed=embed)
 
         # Associate the fulfilled message with the original message.
-        Alternate.set(
-            original_message,
-            fulfilled_message,
-            AlternateType.FULFILLED,
+        Alternate.set(ogmsg, fulfmsg, AlternateType.FULFILLED)
+
+        # Delete the original pending message.
+        await self.on_delete_pending_message(ogmsg_doc, ogmsg)
+
+    @cog_ext.cog_component(components=['yes', 'anonymous'])
+    async def on_fulfilled_pressed(self, ctx: ComponentContext) -> None:
+        await ctx.edit_origin(components=[create_request_arow(disabled=True)])
+
+        reqmsg_doc = Alternate.find(
+            AlternateType.REQUEST,
+            ctx.origin_message_id,
         )
+
+        await self.on_message_fulfilled(
+            None,
+            ctx.custom_id == 'anonymous',
+            reqmsg_doc.original,
+        )
+
+    @cog_ext.cog_component(components='no')
+    async def on_no_pressed(self, ctx: ComponentContext) -> None:
+        await ctx.edit_origin(components=[create_request_arow(disabled=True)])
+        # ...
 
     # Commands
     # ========

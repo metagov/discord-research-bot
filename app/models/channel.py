@@ -1,8 +1,9 @@
 from mongoengine.fields import (
+    ReferenceField,
     DateTimeField,
+    BooleanField,
     StringField,
     IntField,
-    ReferenceField,
 )
 
 from mongoengine.document import Document
@@ -20,18 +21,22 @@ logger = logging.getLogger(__name__)
 
 
 class Channel(Document, Mirror):
-    id = IntField(primary_key=True)
-    name = StringField(required=True)
+    id          = IntField(primary_key=True)
+    name        = StringField(required=True)
 
     # The following are not required.
-    guild = ReferenceField(Guild, default=None, **revcas)
-    topic = StringField(default=None)
-    group = StringField(default=None)
-
-    updated_at = DateTimeField(default=datetime.utcnow)
+    guild       = ReferenceField(Guild, default=None, **revcas)
+    topic       = StringField(default=None)
+    group       = StringField(default=None)
+    updated_at  = DateTimeField(default=datetime.utcnow)
+    deleted     = BooleanField(default=False)
 
     @classmethod
     def record(cls, channel, guild: Guild = None) -> None:
+        """
+        :type channel: discord.TextChannel
+        :type guild:   Union[discord.Guild, Guild] | None
+        """
         if not isinstance(guild, Guild):
             # Retrieve ``Guild`` from database if not already provided.
             guild = Guild.record(guild or channel.guild)
@@ -49,13 +54,17 @@ class Channel(Document, Mirror):
             set_on_insert__id=channel.id,
             set_on_insert__guild=guild,
             set_on_insert__group=None,
+            set_on_insert__deleted=False,
         )
 
     async def fetch(self, bot) -> discord.TextChannel:
         try:
             return await bot.fetch_channel(self.id)
         except Exception as exception:
-            logger.warning('Channel %d no longer exists!', self.id)
-            # Delete document if channel is not found.
-            self.delete()
+            logger.warning('Channel (%d) no longer exists!', self.id)
+
+            # Mark the channel as deleted if it is not found.
+            self.deleted = True
+            self.save()
+
             raise exception

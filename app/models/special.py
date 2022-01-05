@@ -46,7 +46,7 @@ class Special(Document):
             # We need to turn this document into an actual channel.
             channel = await bot.fetch_channel(special.channel.id)
         except:
-            bot.logger.warning(f'{special.channel.id} not longer exists!')
+            bot.logger.warning(f'{special.channel.id} no longer exists!')
             special.delete()
 
             # This will throw an exception the next time around.
@@ -56,7 +56,7 @@ class Special(Document):
 
     @classmethod
     def set(cls, guild, stype, channel) -> 'Special':
-        """Get configured channel with type for guild.
+        """Set configured channel with type for guild.
 
         :type bot:          commands.Bot
         :type guild:        Union[discord.Guild, Guild]
