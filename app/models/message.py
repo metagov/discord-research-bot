@@ -57,6 +57,7 @@ class Message(Document, Mirror):
     author          = ReferenceField(Member, default=None, **C)
     status          = EnumField(MessageStatus, default=MessageStatus.CURATED)
     deleted         = BooleanField(default=False)
+    airtable_id     = IntField(default=None)
 
     @classmethod
     def record(cls, message, guild=None, channel=None) -> 'Message':
@@ -100,6 +101,7 @@ class Message(Document, Mirror):
             set_on_insert__author=None,
             set_on_insert__status=MessageStatus.CURATED,
             set_on_insert__deleted=False,
+            set_on_insert__airtable_id=None
         )
 
     async def fetch(self, bot) -> discord.Message:
