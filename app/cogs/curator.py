@@ -225,6 +225,10 @@ class CurationContext:
         # Delete the pending message for the original message.
         await self.on_delete_pending(bot)
 
+        # Insert the original message document into the Airtable queue.
+        airtable_cog = bot.get_cog("Air")
+        airtable_cog.insert(self.message_document)
+
     async def on_delete_pending(self, bot) -> None:
         # `Alternate` could be pending message if user has opted-in or out.
         assert self.alternate_document and self.alternate
@@ -256,7 +260,7 @@ class Curator(Extension):
             await self.on_message_reacted(message, payload.member)
 
     async def on_message_reacted(self, message, curator) -> None:
-        curation_context = await CurationContext(
+        curation_context = CurationContext(
             message_document=Message.record(message),
             message=message,
             alternate_document=None,

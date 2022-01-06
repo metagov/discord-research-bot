@@ -57,7 +57,7 @@ class Message(Document, Mirror):
     author          = ReferenceField(User, default=None, **C)
     status          = EnumField(MessageStatus, default=MessageStatus.CURATED)
     deleted         = BooleanField(default=False)
-    airtable_id     = IntField(default=None)
+    airtable_id     = StringField(default=None)
 
     @classmethod
     def record(cls, message, guild=None, channel=None) -> 'Message':
@@ -121,23 +121,26 @@ class Message(Document, Mirror):
 
             raise exception
 
-    def export(self):
+    def export(self) -> dict:
+        def convert_timestamp(timestamp) -> str:
+            return timestamp.isoformat() if timestamp else None
+
         message_dict = {
             'id'            : self.id,
             'deleted'       : self.deleted,
             'content'       : self.content,
-            'created_at'    : self.created_at,
-            'edited_at'     : self.edited_at,
+            'created_at'    : convert_timestamp(self.created_at),
+            'edited_at'     : convert_timestamp(self.edited_at),
             'author_hash'   : self.author_hash,
             'channel_id'    : self.channel.id,
             'channel_name'  : self.channel.name,
             'guild_id'      : self.guild.id,
             'guild_name'    : self.guild.name,
             'curated_by'    : self.curated_by[0].name if self.curated_by else None,
-            'curated_at'    : self.curated_at,
+            'curated_at'    : convert_timestamp(self.curated_at),
             'requested_by'  : self.requested_by.name if self.requested_by else None,
-            'requested_at'  : self.requested_at,
-            'fulfilled_at'  : self.fulfilled_at,
+            'requested_at'  : convert_timestamp(self.requested_at),
+            'fulfilled_at'  : convert_timestamp(self.fulfilled_at),
 
         }
 
@@ -155,7 +158,7 @@ class Message(Document, Mirror):
                 'author_id'             : None,
                 'author_name'           : None,
                 'author_discriminator'  : None,
-                'author_nick'           : None,
+                # 'author_nick'           : None,
             })
 
         if self.attachment_urls:
