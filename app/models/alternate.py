@@ -26,17 +26,24 @@ class AlternateType(Enum):
 
 
 class Alternate(Document):
+    # References another `Message`; an `Alternate` connects an original,
+    # curated message to its corresponding `REQUEST`, etc. messages.
     original    = ReferenceField(Message, required=True, unique_with='atype', **C)
+
+    # The ``AlternateType`` of this ``Alternate``; whether it is a ``REQUEST``,
+    # ``FULFILLED``, etc.
     atype       = EnumField(AlternateType, required=True)
+
+    # Identifies this message and its channel within Discord.
     message_id  = IntField(required=True)
     channel_id  = IntField(required=True)
 
-    # The following are not required.
-    deleted = BooleanField(default=False)
+    # Tells us whether this message has been deleted within Discord.
+    deleted     = BooleanField(default=False)
 
     @classmethod
     def set(cls, original, alternate, atype) -> 'Alternate':
-        """Set an alternate message for an original message.
+        """Set an ``Alternate`` for a given message.
 
         :type original:     Union[discord.Message, Message]
         :type alternate:    Union[discord.Message, Message]
@@ -51,6 +58,7 @@ class Alternate(Document):
             upsert=True,
             new=True,
 
+            # These are updated every single time.
             set__message_id=alternate.id,
             set__channel_id=alternate.channel.id,
 
@@ -62,16 +70,13 @@ class Alternate(Document):
 
     @classmethod
     def find(cls, atype, message_id) -> 'Alternate':
-        """Given the ``discord.Message`` representation of an alternate message,
-        find the corresponding ``Alternate`` document.
+        """Given the `discord.Message` representation of an `Alternate`, find
+        the corresponding `Alternate`.
 
         :type atype:        AlternateType
         :type message_id:   int
         """
-        return cls.objects(
-            atype=atype,
-            message_id=message_id,
-        ).first()
+        return cls.objects(atype=atype, message_id=message_id).first()
 
     @classmethod
     def find_by_original(cls, original, atype) -> 'Alternate':
@@ -80,18 +85,21 @@ class Alternate(Document):
 
         :type original:     Union[discord.Message, Message]
         :type atype:        AlternateType
+        :rtype:             Alternate
         """
         # If the original message is a ``discord.Message``, convert it to a
         # ``Message`` so that it can be referenced.
         if isinstance(original, discord.Message):
             original = Message.record(original)
 
-        return cls.objects(
-            original=original,
-            atype=atype,
-        ).first()
+        return cls.objects(original=original, atype=atype).first()
 
     async def fetch(self, bot) -> discord.Message:
+        """Given a `Message` document, fetch its Discord representation.
+
+        :type bot:          discord.Client
+        :rtype:             discord.Message
+        """
         try:
             channel = await bot.fetch_channel(self.channel_id)
             return await channel.fetch_message(self.message_id)

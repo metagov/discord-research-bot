@@ -22,7 +22,7 @@ class Choice(Enum):
 
 class User(Document, Mirror):
     id              = IntField(primary_key=True)
-    hash            = StringField(required=True)
+    # hash            = StringField(required=True)
     name            = StringField(required=True)
     discriminator   = StringField(required=True)
     created_at      = DateTimeField(required=True)
@@ -46,7 +46,7 @@ class User(Document, Mirror):
 
             # These are only updated at the beginning.
             set_on_insert__id=user.id,
-            set_on_insert__hash=user_to_hash(user),
+            # set_on_insert__hash=user_to_hash(user),
             set_on_insert__choice=Choice.UNDECIDED,
             set_on_insert__created_at=user.created_at,
         )

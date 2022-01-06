@@ -27,6 +27,7 @@ P = {'reverse_delete_rule': PULL}
 
 class Comment(Document):
     id          = IntField(primary_key=True)
+    channel_id  = IntField(required=True)
     content     = StringField(required=True)
     created_at  = DateTimeField(required=True)
     author      = ReferenceField(User, required=True, **C)
@@ -42,15 +43,19 @@ class Comment(Document):
         :type comment:  discord.Message
         :type user:     Union[discord.User, User] | None
         """
-        # Turn ``discord.Message`` into ``Message`` so it can be referenced.
+        # Turn `discord.Message` into `Message` so it can be referenced.
         if isinstance(original, discord.Message):
             original = Message.record(original)
 
+        if not isinstance(original, Message):
+            raise ValueError("Expected `Message`, got %s.",
+                             type(original).__name__)
+
         if not isinstance(comment, discord.Message):
-            raise ValueError("Expected discord.Message, got %s",
+            raise ValueError("Expected `discord.Message`, got %s",
                              type(comment).__name__)
-        
-        # Turn ``discord.User`` into ``User`` so it can be referenced.
+
+        # Turn `discord.User` into `User` so it can be referenced.
         if not isinstance(user, User):
             user = User.record(user or original.author)
 
@@ -63,6 +68,7 @@ class Comment(Document):
 
             # These are only updated at the beginning.
             set_on_insert__id=comment.id,
+            set_on_insert__channel_id=comment.channel.id,
             set_on_insert__created_at=comment.created_at,
             set_on_insert__author=user,
             set_on_insert__original=original,

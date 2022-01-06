@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class Member(Document, Mirror):
-    guild = ReferenceField(Guild, required=True, **revcas)
-    user = ReferenceField(User, required=True, **revcas)
-    joined_at = DateTimeField(required=True)
-    roles = EmbeddedDocumentListField(Role, default=list)
+    guild       = ReferenceField(Guild, required=True, **revcas)
+    user        = ReferenceField(User, required=True, **revcas)
+    joined_at   = DateTimeField(required=True)
+    roles       = EmbeddedDocumentListField(Role, default=list)
 
     # The following are not required.
-    updated_at = DateTimeField(default=datetime.utcnow)
-    nick = StringField(default=None)
+    updated_at  = DateTimeField(default=datetime.utcnow)
+    nick        = StringField(default=None)
 
     @classmethod
     def record(cls, member, guild=None, user=None) -> 'Member':

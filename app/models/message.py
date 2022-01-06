@@ -49,12 +49,12 @@ class Message(Document, Mirror):
 
     # The following are not required.
     edited_at       = DateTimeField(default=None)
-    curated_by      = ListField(ReferenceField(Member, **P), default=list)
+    curated_by      = ListField(ReferenceField(User, **P), default=list)
     curated_at      = DateTimeField(default=datetime.utcnow)
     requested_by    = ReferenceField(User, default=None, **N)
     requested_at    = DateTimeField(default=None)
     fulfilled_at    = DateTimeField(default=None)
-    author          = ReferenceField(Member, default=None, **C)
+    author          = ReferenceField(User, default=None, **C)
     status          = EnumField(MessageStatus, default=MessageStatus.CURATED)
     deleted         = BooleanField(default=False)
     airtable_id     = IntField(default=None)
