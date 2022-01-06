@@ -19,6 +19,7 @@ from models.alternate import Alternate, AlternateType
 from models.message import Message, MessageStatus
 from models.special import Special, SpecialType
 from models.user import User, Choice
+from models.comment import Comment
 from models.member import Member
 
 
@@ -229,6 +230,14 @@ class CurationContext:
             components=[create_request_arow()],
         )
 
+        # Send the latest comment from a researcher as well.
+        comment_doc = Comment.objects(original=self.message_document).first()
+        if comment_doc:
+            await request_message.reply(
+                "A researcher has also left the following comment:"
+                f" '{comment_doc.content}'"
+            )
+
         # Associate request message with original message.
         Alternate.set(
             self.message_document,
@@ -263,15 +272,13 @@ class CurationContext:
             AlternateType.FULFILLED,
         )
 
-        # Delete the pending message for the original message.
-        await self.on_delete_pending(bot)
-
         # Insert the original message document into the Airtable queue.
         airtable_cog = bot.get_cog("Air")
         airtable_cog.insert(self.message_document)
 
-        # Send the message that allows this message to be removed.
+        await self.on_delete_pending(bot)
         await self.on_send_delete(bot)
+        await self.on_bridge_repeat(bot)
 
     async def on_delete_pending(self, bot) -> None:
         # `Alternate` could be pending message if user has opted-in or out.
@@ -294,6 +301,40 @@ class CurationContext:
         pending_document.deleted = True
         pending_document.save()
 
+    async def on_bridge_repeat(self, bot) -> None:
+        try:
+            # Encapsulated in a try-except block.
+            bridge_channel = await Special.get(
+                bot,
+                self.message_document.guild,
+                SpecialType.BRIDGE,
+            )
+        except Exception as exception:
+            return bot.logger.warning("on_bridge_repeat(%s) failed!",
+                                      self.message_document)
+
+        # Create a `discord.Embed` to send in the bridge channel.
+        author_document = User.record(self.message.author)
+        anonymous = (author_document.choice == Choice.ANONYMOUS)
+        embed = message_to_embed(self.message, anonymous)
+        embed.add_field(
+            name="Curated",
+            value=(
+                "This message has been curated by researchers from The"
+                " Observatory. To submit a message for review, react to it with"
+                " the '🔭' emoji."
+            ),
+        )
+
+        bridge_message = await bridge_channel.send(embed=embed)
+
+        # Associate the bridge message with the original message.
+        Alternate.set(
+            self.message,
+            bridge_message,
+            AlternateType.BRIDGE,
+        )
+
     def on_message_deleted(self, bot) -> None:
         bot.logger.info("Removing %s from database.", self.message_document)
         airtable_cog = bot.get_cog("Air")
@@ -303,10 +344,19 @@ class CurationContext:
 class Curator(Extension):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        pass
-        # if message.reference is not None:
-        #     ref_channel = await self.bot.fetch_channel(message.reference.channel_id)
-        #     ref_message = await ref_channel.fetch_message(message.reference.message_id)
+        if message.reference is not None:
+            # Interpret the reference message as an `Alternate`.
+            alternate = Alternate.objects(
+                message_id=message.reference.message_id,
+                atype__in=[AlternateType.PENDING, AlternateType.FULFILLED],
+            ).first()
+
+            if alternate:
+                # Save this message as a comment of original message.
+                Comment.save(alternate.original, message)
+                await message.reply("Comment added! 👍")
+                self.bot.logger.info("Added comment %s for %s.",
+                                     message, alternate.original)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload) -> None:

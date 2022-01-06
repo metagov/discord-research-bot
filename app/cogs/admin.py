@@ -1,8 +1,12 @@
-from core.extension import Extension
-from discord.ext import commands
-from discord_slash import cog_ext
+from core.helpers import user_to_hash
 from models.special import Special, SpecialType
+from core.extension import Extension
+from models.message import Message
+from discord_slash import cog_ext
+from discord.ext import commands
 from models.guild import Guild
+from models.user import User
+
 
 class Admin(Extension):
     def __init__(self, bot):
@@ -10,7 +14,7 @@ class Admin(Extension):
 
     @cog_ext.cog_slash(
         name='setup',
-        description='Initializes Telescope and enables text channel bridge'
+        description='Initializes Telescope and enables text channel bridge',
     )
     async def setup(self, ctx):
         observatory = self.bot.get_guild(self.bot.settings.observatory)
@@ -26,13 +30,13 @@ class Admin(Extension):
             return
 
         # creates remote observatory channels
-        category    = await observatory.create_category(ctx.guild.name)
-        ch_bridge   = await observatory.create_text_channel("Bridge", category=category)
-        ch_pending  = await observatory.create_text_channel("Pending Messages", category=category)
+        category = await observatory.create_category(ctx.guild.name)
+        ch_bridge = await observatory.create_text_channel("Bridge", category=category)
+        ch_pending = await observatory.create_text_channel("Pending Messages", category=category)
         ch_approved = await observatory.create_text_channel("Approved Messages", category=category)
 
         # sets bridge, pending, and fulfilled channels
-        Special.set(ctx.guild, SpecialType.BRIDGE, ch_bridge)
+        Special.set(ctx.guild, SpecialType.BRIDGE, ctx.channel)
         Special.set(ctx.guild, SpecialType.PENDING, ch_pending)
         Special.set(ctx.guild, SpecialType.FULFILLED, ch_approved)
 
@@ -44,6 +48,23 @@ class Admin(Extension):
 
         await ctx.reply("Done!")
 
+    @cog_ext.cog_slash(
+        name="optout",
+        description="Remove all of your messages from The Observatory dataset.",
+    )
+    async def optout(self, ctx) -> None:
+        author_hash = user_to_hash(ctx.author)
+        at_cog = self.bot.get_cog("Air")
+        for message_doc in Message.objects(author_hash=author_hash):
+            self.bot.logger.warning("Queueing %s for deletion.", message_doc)
+            at_cog.delete(message_doc)
+        
+        # Send a message after queueing all for deletion.
+        await ctx.reply(
+            "Your messages have successfully been queued for deletion and will"
+            " be promptly removed from our dataset. Please contact a researcher"
+            " from The Observatory if you have any questions."
+        )
 
 def setup(bot):
     cog = Admin(bot)

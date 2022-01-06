@@ -49,7 +49,7 @@ class Air(Extension):
                 to_delete.export(),
             )
             
-            sleep(self.table.API_LIMIT)
+            await sleep(self.table.API_LIMIT)
 
 
 def setup(bot):

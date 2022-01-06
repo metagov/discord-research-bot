@@ -57,7 +57,7 @@ class Comment(Document):
 
         # Turn `discord.User` into `User` so it can be referenced.
         if not isinstance(user, User):
-            user = User.record(user or original.author)
+            user = User.record(user or comment.author)
 
         return cls.objects(id=comment.id).modify(
             upsert=True,
