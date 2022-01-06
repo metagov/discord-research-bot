@@ -23,6 +23,7 @@ class AlternateType(Enum):
     REQUEST     = 'request'
     FULFILLED   = 'fulfilled'
     BRIDGE      = 'bridge'
+    DELETE      = 'delete'
 
 
 class Alternate(Document):

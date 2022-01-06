@@ -145,3 +145,14 @@ def create_request_arow(disabled: bool = False) -> dict:
         #     url='https://discord.com/'
         # ),
     )
+
+
+def create_delete_arow(disabled: bool = False) -> dict:
+    return create_actionrow(
+        create_button(
+            style=ButtonStyle.red,
+            label="Remove",
+            custom_id="delete",
+            disabled=disabled,
+        ),
+    )

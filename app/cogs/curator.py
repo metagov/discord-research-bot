@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from email import message
 from typing import Optional, Union
 
 from core.extension import Extension
 from core.helpers import (
+    create_delete_arow,
     create_pending_arow,
     create_request_arow,
     message_to_embed,
@@ -172,6 +174,45 @@ class CurationContext:
 
         return embed
 
+    def is_older_than(self, days) -> bool:
+        return self.message_document.fulfilled_at + \
+            timedelta(days) < datetime.utcnow()
+
+    def create_delete_preview(self, bot) -> discord.Embed:
+        author_document = User.record(self.message.author)
+        text = ""
+
+        if author_document.choice not in [Choice.YES, Choice.ANONYMOUS]:
+            bot.logger.warning("Choice of %s was unexpected!", author_document)
+        else:
+            text = " You are currently opted-in"
+            text += "." if author_document.choice == Choice.YES else ", anonymously."
+
+        embed = message_to_embed(self.message)
+        embed.add_field(
+            name="Removal",
+            value=(
+                f"A message of yours has just been added to our dataset.{text}"
+                " You can have it removed by clicking the button below."
+            ),
+        )
+
+        return embed
+
+    async def on_send_delete(self, bot) -> None:
+        bot.logger.info("Sending delete message for %s.", self.message)
+        delete_message = await self.message.author.send(
+            embed=self.create_delete_preview(bot),
+            components=[create_delete_arow()],
+        )
+
+        # Associate delete message with original message.
+        Alternate.set(
+            self.message_document,
+            delete_message,
+            AlternateType.DELETE,
+        )
+
     async def on_request_permission(self, bot) -> None:
         bot.logger.info("Requesting permission for %s.", self.message)
         await self.disable_components(create_pending_arow)
@@ -229,6 +270,9 @@ class CurationContext:
         airtable_cog = bot.get_cog("Air")
         airtable_cog.insert(self.message_document)
 
+        # Send the message that allows this message to be removed.
+        await self.on_send_delete(bot)
+
     async def on_delete_pending(self, bot) -> None:
         # `Alternate` could be pending message if user has opted-in or out.
         assert self.alternate_document and self.alternate
@@ -250,8 +294,20 @@ class CurationContext:
         pending_document.deleted = True
         pending_document.save()
 
+    def on_message_deleted(self, bot) -> None:
+        bot.logger.info("Removing %s from database.", self.message_document)
+        airtable_cog = bot.get_cog("Air")
+        airtable_cog.delete(self.message_document)
+
 
 class Curator(Extension):
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message) -> None:
+        pass
+        # if message.reference is not None:
+        #     ref_channel = await self.bot.fetch_channel(message.reference.channel_id)
+        #     ref_message = await ref_channel.fetch_message(message.reference.message_id)
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload) -> None:
         channel = await self.bot.fetch_channel(payload.channel_id)
@@ -267,7 +323,7 @@ class Curator(Extension):
             alternate=None,
             interactor=None,
         )
-        
+
         curation_context.add_curator_document(curator)
         await curation_context.on_message_curated(self.bot)
 
@@ -314,6 +370,35 @@ class Curator(Extension):
 
         curation_context.remember_decision(self.bot, context.author, Choice.NO)
         await curation_context.disable_components(create_request_arow)
+
+    @cog_ext.cog_component(components="delete")
+    async def on_delete_pressed(self, context: ComponentContext) -> None:
+        await context.edit_origin()
+
+        curation_context = await CurationContext.from_component_context(
+            self.bot,
+            context,
+            AlternateType.DELETE,
+        )
+
+        # Disable the components so they cannot be interacted with again.
+        await curation_context.disable_components(create_delete_arow)
+
+        # Check if the time limit for this message has been exceeded.
+        days_limit = 10
+        if curation_context.is_older_than(days=days_limit):
+            return await context.reply(
+                f"Sorry, but the time limit of {days_limit} days have passed"
+                " since the message was added to our dataset. Please contact"
+                " a researcher from The Observatory if you have any questions."
+            )
+
+        curation_context.on_message_deleted(self.bot)
+        await context.reply(
+            "Your message has successfully been queued for deletion and will"
+            " be promptly removed from our dataset. Please contact a researcher"
+            " from The Observatory if you have any questions."
+        )
 
     # Commands
     # ========
