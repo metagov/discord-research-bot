@@ -1,7 +1,9 @@
+from asyncio.tasks import sleep
 from core.extension import Extension
 from airtable import Airtable
 from discord.ext import tasks
 from models.message import Message
+from core.settings import Settings
 
 
 class Air(Extension):
@@ -16,34 +18,38 @@ class Air(Extension):
         self.insert_queue = []
         self.delete_queue = []
 
+        # starts update loop
         self.update.start()
 
-    def insert(self, message) -> None:
+    def insert(self, message):
         self.insert_queue.append(message)
 
-    def delete(self, message) -> None:
+    def delete(self, message):
         self.delete_queue.append(message)
 
-    @tasks.loop(seconds=5)
-    async def update(self) -> None:
-        # for document in Message.objects:
-        #     if document.airtable_id:
-        #         self.delete(document)
-
+    # inserts and deletes all messages in queue
+    @tasks.loop(minutes=Settings().sync_time)
+    async def update(self):
         while self.insert_queue:
             to_insert = self.insert_queue.pop()
+            # exports message Document to dict and inserts in airtable
             record = self.table.insert(to_insert.export())
             to_insert.airtable_id = record['id']
             to_insert.save()
+    
+            sleep(self.table.API_LIMIT)
 
         while self.delete_queue:
             to_delete = self.delete_queue.pop()
             to_delete.deleted = True
             to_delete.save()
+            # exports message Document to dict and updates airtable (marks deleted)
             record = self.table.update(
                 to_delete.airtable_id,
                 to_delete.export(),
             )
+            
+            sleep(self.table.API_LIMIT)
 
 
 def setup(bot):

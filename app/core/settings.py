@@ -9,7 +9,8 @@ class Settings:
         'guilds': [],
         'global': False,
         'base_id': '',
-        'table_name': ''
+        'table_name': '',
+        'sync_time': 10
     }
 
     def __init__(self) -> None:
