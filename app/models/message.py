@@ -133,7 +133,7 @@ class Message(Document, Mirror):
             'channel_name'  : self.channel.name,
             'guild_id'      : self.guild.id,
             'guild_name'    : self.guild.name,
-            'curated_by'    : self.curated_by[0].user.name if self.curated_by else None,
+            'curated_by'    : self.curated_by[0].name if self.curated_by else None,
             'curated_at'    : self.curated_at,
             'requested_by'  : self.requested_by.name if self.requested_by else None,
             'requested_at'  : self.requested_at,
@@ -142,26 +142,26 @@ class Message(Document, Mirror):
         }
 
         if self.author:
-            message_dict |= {
+            message_dict.update({
                 'author_is_anonymous'   : False,
-                'author_id'             : self.author.user.id,
-                'author_name'           : self.author.user.name,
-                'author_discriminator'  : self.author.user.discriminator,
-                'author_nick'           : self.author.nick,
-            }
+                'author_id'             : self.author.id,
+                'author_name'           : self.author.name,
+                'author_discriminator'  : self.author.discriminator,
+                # 'author_nick'           : self.author.nick,
+            })
         else:
-            message_dict |= {
+            message_dict.update({
                 'author_is_anonymous'   : True,
                 'author_id'             : None,
                 'author_name'           : None,
                 'author_discriminator'  : None,
                 'author_nick'           : None,
-            }
+            })
 
         if self.attachment_urls:
-            message_dict |= {
+            message_dict.update({
                 'attachment_urls': ', '.join(self.attachment_urls)
-            }
+            })
 
         return message_dict
 

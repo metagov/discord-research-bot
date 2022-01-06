@@ -24,17 +24,14 @@ from models.member import Member
 class CurationContext:
     message_document:   Message
     message:            discord.Message
-    curator_document:   Optional[Member]
-    curator:            Optional[discord.Member]
     alternate_document: Optional[Alternate]
     alternate:          Optional[discord.Message]
     interactor:         Optional[discord.User]
 
-    def __post__init__(self) -> None:
-        assert self.curator_document and self.curator
-        assert isinstance(self.curator_document, Member)
-        if self.curator_document not in self.message_document.curated_by:
-            self.message_document.curated_by.append(self.curator_document)
+    def add_curator_document(self, curator) -> None:
+        curator_document = User.record(curator)
+        if curator_document not in self.message_document.curated_by:
+            self.message_document.curated_by.append(curator_document)
             self.message_document.save()
 
     @classmethod
@@ -48,8 +45,6 @@ class CurationContext:
         return cls(
             message_document=document.original,
             message=await document.original.fetch(bot),
-            curator_document=None,
-            curator=None,
             alternate_document=document,
             alternate=context.origin_message,
             interactor=context.author,
@@ -261,15 +256,16 @@ class Curator(Extension):
             await self.on_message_reacted(message, payload.member)
 
     async def on_message_reacted(self, message, curator) -> None:
-        await CurationContext(
+        curation_context = await CurationContext(
             message_document=Message.record(message),
             message=message,
-            curator_document=Member.record(curator),
-            curator=curator,
             alternate_document=None,
             alternate=None,
             interactor=None,
-        ).on_message_curated(self.bot)
+        )
+        
+        curation_context.add_curator_document(curator)
+        await curation_context.on_message_curated(self.bot)
 
     @cog_ext.cog_component(components="request")
     async def on_request_pressed(self, context: ComponentContext) -> None:
@@ -337,6 +333,7 @@ class Curator(Extension):
         user_document.choice = Choice.UNDECIDED
         user_document.save()
         await ctx.message.add_reaction("👍")
+
 
 def setup(bot) -> None:
     cog = Curator(bot)
