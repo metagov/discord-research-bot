@@ -120,3 +120,49 @@ class Message(Document, Mirror):
             self.save()
 
             raise exception
+
+    def export(self):
+        message_dict = {
+            'id'            : self.id,
+            'deleted'       : self.deleted,
+            'content'       : self.content,
+            'created_at'    : self.created_at,
+            'edited_at'     : self.edited_at,
+            'author_hash'   : self.author_hash,
+            'channel_id'    : self.channel.id,
+            'channel_name'  : self.channel.name,
+            'guild_id'      : self.guild.id,
+            'guild_name'    : self.guild.name,
+            'curated_by'    : self.curated_by[0].user.name if self.curated_by else None,
+            'curated_at'    : self.curated_at,
+            'requested_by'  : self.requested_by.name if self.requested_by else None,
+            'requested_at'  : self.requested_at,
+            'fulfilled_at'  : self.fulfilled_at,
+
+        }
+
+        if self.author:
+            message_dict |= {
+                'author_is_anonymous'   : False,
+                'author_id'             : self.author.user.id,
+                'author_name'           : self.author.user.name,
+                'author_discriminator'  : self.author.user.discriminator,
+                'author_nick'           : self.author.nick,
+            }
+        else:
+            message_dict |= {
+                'author_is_anonymous'   : True,
+                'author_id'             : None,
+                'author_name'           : None,
+                'author_discriminator'  : None,
+                'author_nick'           : None,
+            }
+
+        if self.attachment_urls:
+            message_dict |= {
+                'attachment_urls': ', '.join(self.attachment_urls)
+            }
+
+        return message_dict
+
+

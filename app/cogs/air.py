@@ -1,6 +1,7 @@
 from core.extension import Extension
 from airtable import Airtable
-from discord.ext import tasks
+from discord.ext import tasks 
+from models.message import Message
 
 class Air(Extension):
     def __init__(self, bot):
@@ -28,18 +29,21 @@ class Air(Extension):
 
     @tasks.loop(seconds=5)
     async def update(self):
-        while self.insert_queue:
-            to_insert = self.insert_queue.pop()
-            record = self.table.insert(to_insert)
-            to_insert.airtable_id = record['id']
-            to_insert.save()
+        for m in Message.objects.all():
+            print(m.export())
 
-        while self.delete_queue:
-            to_delete = self.delete_queue.pop()
-            to_delete.deleted = True
-            record = self.table.update(to_delete.airtable_id, to_delete)
+        # while self.insert_queue:
+        #     to_insert = self.insert_queue.pop()
+        #     record = self.table.insert(to_insert.export())
+        #     to_insert.airtable_id = record['id']
+        #     to_insert.save()
+
+        # while self.delete_queue:
+        #     to_delete = self.delete_queue.pop()
+        #     to_delete.deleted = True
+        #     record = self.table.update(to_delete.airtable_id, to_delete.export())
             
-            to_delete.save()
+        #     to_delete.save()
 
 
 
