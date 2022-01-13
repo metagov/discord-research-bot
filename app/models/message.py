@@ -126,15 +126,15 @@ class Message(Document, Mirror):
             return timestamp.isoformat() if timestamp else None
 
         message_dict = {
-            'id'            : self.id,
+            'id'            : str(self.id),
             'deleted'       : self.deleted,
             'content'       : self.content,
             'created_at'    : convert_timestamp(self.created_at),
             'edited_at'     : convert_timestamp(self.edited_at),
             'author_hash'   : self.author_hash,
-            'channel_id'    : self.channel.id,
+            'channel_id'    : str(self.channel.id),
             'channel_name'  : self.channel.name,
-            'guild_id'      : self.guild.id,
+            'guild_id'      : str(self.guild.id),
             'guild_name'    : self.guild.name,
             'curated_by'    : self.curated_by[0].name if self.curated_by else None,
             'curated_at'    : convert_timestamp(self.curated_at),
@@ -147,7 +147,7 @@ class Message(Document, Mirror):
         if self.author:
             message_dict.update({
                 'author_is_anonymous'   : False,
-                'author_id'             : self.author.id,
+                'author_id'             : str(self.author.id),
                 'author_name'           : self.author.name,
                 'author_discriminator'  : self.author.discriminator,
                 # 'author_nick'           : self.author.nick,
