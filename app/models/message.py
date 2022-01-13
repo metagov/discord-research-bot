@@ -176,7 +176,7 @@ class Message(Document, Mirror):
             to_export.append({
                 "author_name":  comment_doc.author.name,
                 "created_at":   comment_doc.created_at.isoformat(),
-                "author_id":    comment_doc.author.id,
+                "author_id":    str(comment_doc.author.id),
                 "content":      comment_doc.content,
             })
         return json.dumps(to_export)
