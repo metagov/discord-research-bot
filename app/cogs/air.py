@@ -37,7 +37,7 @@ class Air(Extension):
             to_insert.airtable_id = record['id']
             to_insert.save()
     
-            sleep(self.table.API_LIMIT)
+            await sleep(self.table.API_LIMIT)
 
         while self.delete_queue:
             to_delete = self.delete_queue.pop()
