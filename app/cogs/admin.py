@@ -48,6 +48,26 @@ class Admin(Extension):
 
         await ctx.reply("Done!")
 
+    @commands.command(name='smanualsetup')
+    @commands.is_owner()
+    async def manual_setup(self, ctx, pending_id, approved_id, bridge_id):
+        sat_guild = ctx.guild
+        sat_channel = ctx.channel
+        print(pending_id, approved_id, bridge_id)
+        pending = await self.bot.fetch_channel(int(pending_id))
+        approved = await self.bot.fetch_channel(int(approved_id))
+        bridge = await self.bot.fetch_channel(int(bridge_id))
+
+        Special.set(sat_guild, SpecialType.BRIDGE, sat_channel)
+        Special.set(sat_guild, SpecialType.PENDING, pending)
+        Special.set(sat_guild, SpecialType.FULFILLED, approved)
+
+        bridge_cog = self.bot.get_cog("Bridge")
+        bridge_cog.set_channel_group(sat_channel, str(sat_guild.id))
+        bridge_cog.set_channel_group(bridge, str(sat_guild.id))
+
+        await ctx.message.add_reaction("👍")
+
     @cog_ext.cog_slash(
         name="optout",
         description="Remove all of your messages from The Observatory dataset.",
