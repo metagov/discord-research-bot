@@ -50,8 +50,8 @@ class Air(Extension):
         
 
 
-    def fetch_comments(self, message):
-        message['researcher_comments'] = Comment.retrieve_comments(message)
+    def fetch_comments(self, message_json, message_doc):
+        message_json['researcher_comments'] = Comment.retrieve_comments(message_doc)
 
     # inserts and deletes all messages in queue
     @tasks.loop(seconds=5)
@@ -62,7 +62,7 @@ class Air(Extension):
             message_json = to_insert.export()
 
             await self.fetch_role_data(message_json)
-            self.fetch_comments(message_json)
+            self.fetch_comments(message_json, to_insert)
 
             print(message_json)
 
@@ -81,7 +81,7 @@ class Air(Extension):
             message_json = to_delete.export()
 
             await self.fetch_role_data(message_json)
-            self.fetch_comments(message_json)
+            self.fetch_comments(to_delete)
 
             # exports message Document to dict and updates airtable (marks deleted)
             record = self.table.update(
