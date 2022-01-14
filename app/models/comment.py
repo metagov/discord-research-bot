@@ -11,6 +11,7 @@ from core.helpers import user_to_hash
 from datetime import datetime
 from enum import Enum
 import discord
+import json
 
 from .channel import Channel
 from .message import Message
@@ -73,3 +74,14 @@ class Comment(Document):
             set_on_insert__author=user,
             set_on_insert__original=original,
         )
+    
+    @classmethod
+    def retrieve_comments(cls, message) -> str:
+        to_export = []
+        for comment_doc in cls.objects(original=message):
+            to_export.append({
+                "author":  comment_doc.author.name,
+                "content":      comment_doc.content,
+            })
+        comment_string = json.dumps(to_export)
+        return comment_string if not comment_string == "[]" else None

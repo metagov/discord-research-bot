@@ -15,9 +15,7 @@ from datetime import datetime
 from enum import Enum
 import discord
 import logging
-import json
 
-from .comment import Comment
 from .channel import Channel
 from .member import Member
 from .mirror import Mirror
@@ -168,11 +166,4 @@ class Message(Document, Mirror):
 
         return message_dict
 
-    def retrieve_comments(self) -> str:
-        to_export = []
-        for comment_doc in Comment.objects(original=self):
-            to_export.append({
-                "author":  comment_doc.author.name,
-                "content":      comment_doc.content,
-            })
-        return json.dumps(to_export)
+    

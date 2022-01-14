@@ -3,6 +3,7 @@ from core.extension import Extension
 from airtable import Airtable
 from discord.ext import tasks
 from models.message import Message
+from models.comment import Comment
 from core.settings import Settings
 import discord
 
@@ -27,42 +28,65 @@ class Air(Extension):
     def delete(self, message):
         self.delete_queue.append(message)
 
-    def fetch_role_data(self, message):
+    async def fetch_role_data(self, message):
         if message['author_is_anonymous']: return
 
-        guild = self.bot.fetch_guild(int(message['guild_id']))
+        guild = await self.bot.fetch_guild(int(message['guild_id']))
         member = discord.utils.get(guild.members, id=int(message['author_id']))
 
-        message['author_roles'] = []
+        message['author_roles'] = None
 
         if member:
             message['author_nick'] = member.nick
-            for role in member.roles:
-                message['author_roles'].append({
-                    'name': role.name,
-                    'id': role.id
-                })
+            if member.roles:
+                message['author_roles'] = []
+                for role in member.roles:
+                    message['author_roles'].append({
+                        'name': role.name,
+                        'id': role.id
+                    })
+        else:
+            print("failed to get members list")
+        
+
+
+    def fetch_comments(self, message):
+        message['researcher_comments'] = Comment.retrieve_comments(message)
 
     # inserts and deletes all messages in queue
-    @tasks.loop(minutes=Settings().sync_time)
+    @tasks.loop(seconds=5)
     async def update(self):
         while self.insert_queue:
             to_insert = self.insert_queue.pop()
+
+            message_json = to_insert.export()
+
+            await self.fetch_role_data(message_json)
+            self.fetch_comments(message_json)
+
+            print(message_json)
+
             # exports message Document to dict and inserts in airtable
-            record = self.table.insert(to_insert.export())
+            record = self.table.insert(message_json)
             to_insert.airtable_id = record['id']
             to_insert.save()
-    
+
             await sleep(self.table.API_LIMIT)
 
         while self.delete_queue:
             to_delete = self.delete_queue.pop()
             to_delete.deleted = True
             to_delete.save()
+
+            message_json = to_delete.export()
+
+            await self.fetch_role_data(message_json)
+            self.fetch_comments(message_json)
+
             # exports message Document to dict and updates airtable (marks deleted)
             record = self.table.update(
                 to_delete.airtable_id,
-                to_delete.export(),
+                message_json,
             )
             
             await sleep(self.table.API_LIMIT)

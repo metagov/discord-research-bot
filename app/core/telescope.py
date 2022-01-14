@@ -1,3 +1,4 @@
+import discord
 from discord_slash import SlashCommand
 from types import SimpleNamespace
 from discord.ext import commands
@@ -9,10 +10,14 @@ import cogs
 
 class Telescope(commands.Bot):
     def __init__(self, **kwargs) -> None:
+        intents = discord.Intents.default()
+        intents.members = True
+
         super().__init__(
             command_prefix=commands.when_mentioned_or('.'),
             description='My objective is to observe and record!',
             help_command=None,
+            intents=intents
         )
 
         SlashCommand(self, sync_commands=True, sync_on_cog_reload=True)
