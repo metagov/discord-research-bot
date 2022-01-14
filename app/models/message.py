@@ -152,7 +152,6 @@ class Message(Document, Mirror):
                 'author_id'             : str(self.author.id),
                 'author_name'           : self.author.name,
                 'author_discriminator'  : self.author.discriminator,
-                # 'author_nick'           : self.author.nick,
             })
         else:
             message_dict.update({
@@ -160,7 +159,6 @@ class Message(Document, Mirror):
                 'author_id'             : None,
                 'author_name'           : None,
                 'author_discriminator'  : None,
-                # 'author_nick'           : None,
             })
 
         if self.attachment_urls:
@@ -174,9 +172,7 @@ class Message(Document, Mirror):
         to_export = []
         for comment_doc in Comment.objects(original=self):
             to_export.append({
-                "author_name":  comment_doc.author.name,
-                "created_at":   comment_doc.created_at.isoformat(),
-                "author_id":    str(comment_doc.author.id),
+                "author":  comment_doc.author.name,
                 "content":      comment_doc.content,
             })
         return json.dumps(to_export)

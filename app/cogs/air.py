@@ -4,7 +4,7 @@ from airtable import Airtable
 from discord.ext import tasks
 from models.message import Message
 from core.settings import Settings
-
+import discord
 
 class Air(Extension):
     def __init__(self, bot):
@@ -26,6 +26,22 @@ class Air(Extension):
 
     def delete(self, message):
         self.delete_queue.append(message)
+
+    def fetch_role_data(self, message):
+        if message['author_is_anonymous']: return
+
+        guild = self.bot.fetch_guild(int(message['guild_id']))
+        member = discord.utils.get(guild.members, id=int(message['author_id']))
+
+        message['author_roles'] = []
+
+        if member:
+            message['author_nick'] = member.nick
+            for role in member.roles:
+                message['author_roles'].append({
+                    'name': role.name,
+                    'id': role.id
+                })
 
     # inserts and deletes all messages in queue
     @tasks.loop(minutes=Settings().sync_time)
