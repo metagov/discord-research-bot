@@ -67,7 +67,7 @@ class CurationContext:
         user.choice = choice
         user.save()
 
-    async def on_message_curated(self, bot) -> None:
+    async def on_message_curated(self, bot, curator) -> None:
         pending_channel = await Special.get(
             bot,
             self.message_document.guild,
@@ -83,14 +83,21 @@ class CurationContext:
         self.message_document.curated_at = datetime.utcnow()
         self.message_document.save()
 
-        await self.on_message_pending(bot, pending_channel)
+        await self.on_message_pending(bot, pending_channel, curator)
 
-    async def on_message_pending(self, bot, pending_channel) -> None:
+    async def on_message_pending(self, bot, pending_channel, curator) -> None:
         bot.logger.info("Sending pending message for %s.", self.message)
+
+        embed = message_to_embed(self.message)
+        embed.add_field(
+            name='Curated By',
+            value='{0.name}#{0.discriminator}'.format(curator),
+            inline=False
+        )
 
         # Send pending message to pending channel.
         pending_message = await pending_channel.send(
-            embed=message_to_embed(self.message),
+            embed=embed,
             components=[create_pending_arow()],
         )
 
@@ -102,7 +109,7 @@ class CurationContext:
         )
 
     async def on_message_request(self, bot) -> None:
-        assert isinstance(self.message.author, discord.User)
+        # assert isinstance(self.message.author, discord.User)
         author_document = User.record(self.message.author)
 
         if author_document.choice == Choice.UNDECIDED:
@@ -375,7 +382,7 @@ class Curator(Extension):
         )
 
         curation_context.add_curator_document(curator)
-        await curation_context.on_message_curated(self.bot)
+        await curation_context.on_message_curated(self.bot, curator)
 
     @cog_ext.cog_component(components="request")
     async def on_request_pressed(self, context: ComponentContext) -> None:
