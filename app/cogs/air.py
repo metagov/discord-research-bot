@@ -54,7 +54,7 @@ class Air(Extension):
         message_json['researcher_comments'] = Comment.retrieve_comments(message_doc)
 
     # inserts and deletes all messages in queue
-    @tasks.loop(seconds=5)
+    @tasks.loop(seconds=Settings().sync_time)
     async def update(self):
         while self.insert_queue:
             to_insert = self.insert_queue.pop()
@@ -81,7 +81,7 @@ class Air(Extension):
             message_json = to_delete.export()
 
             await self.fetch_role_data(message_json)
-            self.fetch_comments(to_delete)
+            self.fetch_comments(message_json, to_delete)
 
             # exports message Document to dict and updates airtable (marks deleted)
             record = self.table.update(
