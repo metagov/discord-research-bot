@@ -39,14 +39,6 @@ class CurationContext:
             self.message_document.curated_by.append(curator_document)
             self.message_document.save()
 
-    # async def delete_original_from_avatar_url(self, avatar_url: str) -> None:
-    #     ...
-
-    # async def repair_broken_pending(self, origin_message: "ComponentMessage") -> None:
-    #     avatar_url = origin_message.embeds[0].avatar_url
-    #     await self.delete_
-        
-
     @classmethod
     async def from_component_context(cls, bot, context, atype) -> "CurationContext":
         # 1. Context is on pending message.
@@ -55,8 +47,8 @@ class CurationContext:
         if document is None:
             
             try:
-                print("Broken message detected")
-                # await self.repair_broken_pending(context.origin_message)
+                broken_message_url = context.origin_message.embeds[0].author.url
+                print("Broken message detected, original url:", broken_message_url)
             except Exception as error:
                 print("Failed to repair broken pending message!")
                 print_exc()
