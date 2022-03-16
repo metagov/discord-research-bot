@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from email import message
 from typing import Optional, Union
+from traceback import print_exc
 
 from core.extension import Extension
 from core.helpers import (
@@ -12,6 +13,7 @@ from core.helpers import (
 )
 
 from discord_slash import cog_ext, ComponentContext
+from discord_slash import ComponentMessage
 from discord.ext import commands
 import discord
 
@@ -37,12 +39,28 @@ class CurationContext:
             self.message_document.curated_by.append(curator_document)
             self.message_document.save()
 
+    # async def delete_original_from_avatar_url(self, avatar_url: str) -> None:
+    #     ...
+
+    # async def repair_broken_pending(self, origin_message: "ComponentMessage") -> None:
+    #     avatar_url = origin_message.embeds[0].avatar_url
+    #     await self.delete_
+        
+
     @classmethod
     async def from_component_context(cls, bot, context, atype) -> "CurationContext":
         # 1. Context is on pending message.
         # 2. Context is on request message.
         document = Alternate.find(atype, context.origin_message_id)
         if document is None:
+            
+            try:
+                print("Broken message detected")
+                # await self.repair_broken_pending(context.origin_message)
+            except Exception as error:
+                print("Failed to repair broken pending message!")
+                print_exc()
+            
             raise ValueError("No `Alternate` found for %s.", context)
 
         return cls(
@@ -113,13 +131,16 @@ class CurationContext:
         author_document = User.record(self.message.author)
 
         if author_document.choice == Choice.UNDECIDED:
+            bot.logger.info("UNDECIDED")
             return await self.on_request_permission(bot)
         elif author_document.choice in [Choice.YES, Choice.ANONYMOUS]:
+            bot.logger.info("YES or ANONYMOUS")
             anonymous = (author_document.choice == Choice.ANONYMOUS)
             return await self.on_message_fulfilled(bot, anonymous)
         else:
             # The author has decided to opt-out of the process.
-            bot.logger.info("%s has been auto. declined.", self.message)
+            bot.logger.info("%s has been auto declined.", self.message)
+            await self.on_delete_pending(bot)
 
     def create_request_preview(self) -> discord.Embed:
         link = "https://rmit.edu.au/research/centres-collaborations/derc/" + \
