@@ -1,130 +1,111 @@
-import json, csv
-from discord.ext import commands
-from discord_slash.utils.manage_commands import create_option
-from constants import DEVELOPER_IDS
-from database import MESSAGES_TABLE_NAME, db, is_admin
-from pathlib import Path, PurePath
+from core.helpers import user_to_hash
+from models.special import Special, SpecialType
+from core.extension import Extension
+from models.message import Message
 from discord_slash import cog_ext
-from datetime import datetime
-import discord
+from discord.ext import commands
+from models.guild import Guild
+from models.user import User
 
-class AdminCog(commands.Cog):
+
+class Admin(Extension):
     def __init__(self, bot):
         self.bot = bot
 
     @cog_ext.cog_slash(
-        name='admin',
-        description=('Makes the owner of the bot an admin or makes/unmakes'
-            'someone else an admin.'),
-        options=[
-            create_option(
-                name='user',
-                description='The user to add or remove from the admin list.',
-                option_type=6, # 6 means user.
-                required=False
-            )
-        ]
+        name='setup',
+        description='Initializes Telescope and enables text channel bridge',
     )
-    async def _admin(self, ctx, user: discord.User=None):
-        if user is None and ctx.author.id in DEVELOPER_IDS:
-            # Give developer admin.
-            db.user(ctx.author).is_admin = True
-            return await ctx.reply('Done!')
+    async def setup(self, ctx):
+        observatory = self.bot.get_guild(self.bot.settings.observatory)
+
+        # retrieving guild document
+        guild = Guild.record(ctx.guild)
+        if Special.objects(guild=guild).first():
+            await ctx.reply("This server has already been setup.")
+            return
+
+        if ctx.guild == observatory:
+            await ctx.reply("Setup can only be run in Satellite Servers, not the Observatory.")
+            return
+
+        # creates remote observatory channels
+        category = await observatory.create_category(ctx.guild.name)
+        ch_bridge = await observatory.create_text_channel("Bridge", category=category)
+        ch_pending = await observatory.create_text_channel("Pending Messages", category=category)
+        ch_approved = await observatory.create_text_channel("Approved Messages", category=category)
+
+        # sets bridge, pending, and fulfilled channels
+        Special.set(ctx.guild, SpecialType.BRIDGE, ctx.channel)
+        Special.set(ctx.guild, SpecialType.PENDING, ch_pending)
+        Special.set(ctx.guild, SpecialType.FULFILLED, ch_approved)
+
+        # creates bridge between setup channel and observatory channel
+        # bridge group is the guild id (guaranteed to be unique)
+        bridge_cog = self.bot.get_cog("Bridge")
+        bridge_cog.set_channel_group(ctx.channel, str(ctx.guild.id))
+        bridge_cog.set_channel_group(ch_bridge,   str(ctx.guild.id))
+
+        await ctx.reply("Done!")
+
+    @commands.command(name='smovebridgehere')
+    @commands.is_owner()
+    async def move_bridge_here(self, ctx):
+        sat_guild = ctx.guild
+        sat_channel = ctx.channel
+
+        guild = Guild.objects(id=sat_guild.id).first()
+        bridge = Special.objects(guild=guild, stype=SpecialType.BRIDGE).first()
+
+        old_channel = await self.bot.fetch_channel(bridge.channel.id)
+        bridge.delete()
+
+        print(f"moving bridge {old_channel} ({old_channel.id}) -> {sat_channel} ({sat_channel.id})")
+
+        Special.set(sat_guild, SpecialType.BRIDGE, sat_channel)
         
-        # Check if author is an admin.
-        if not is_admin(ctx):
-            return await ctx.reply('You are not an admin!')
+        bridge_cog = self.bot.get_cog("Bridge")
+        bridge_cog.reset_channel_group(old_channel)
+        bridge_cog.set_channel_group(sat_channel, str(sat_guild.id))
 
-        db.user(user).is_admin = not db.user(user).is_admin
-        await ctx.reply('Done!')
+    @commands.command(name='smanualsetup')
+    @commands.is_owner()
+    async def manual_setup(self, ctx, pending_id, approved_id, bridge_id):
+        sat_guild = ctx.guild
+        sat_channel = ctx.channel
+        print(pending_id, approved_id, bridge_id)
+        pending = await self.bot.fetch_channel(int(pending_id))
+        approved = await self.bot.fetch_channel(int(approved_id))
+        bridge = await self.bot.fetch_channel(int(bridge_id))
 
-    def export_messages(self):
-        exported = []
-        for document in db.handle.table(MESSAGES_TABLE_NAME):
+        Special.set(sat_guild, SpecialType.BRIDGE, sat_channel)
+        Special.set(sat_guild, SpecialType.PENDING, pending)
+        Special.set(sat_guild, SpecialType.FULFILLED, approved)
 
-            # Add all comments to this message.
-            if 'comments' not in document:
-                document['comments'] = []
-            
-            message = db.message(
-                channel_id=document.get('original_cid'),
-                message_id=document.get('original_mid')
-            )
+        bridge_cog = self.bot.get_cog("Bridge")
+        bridge_cog.set_channel_group(sat_channel, str(sat_guild.id))
+        bridge_cog.set_channel_group(bridge, str(sat_guild.id))
 
-            for comment in message.comments:
-                document['comments'].append(comment)
-            
-            # Add to resulting list.
-            exported.append(document)
-        
-        return exported
+        await ctx.message.add_reaction("👍")
 
     @cog_ext.cog_slash(
-        name='export_csv',
-        description='Gives the callee curated data in csv format.'
+        name="optout",
+        description="Remove all of your messages from The Observatory dataset.",
     )
-    async def export_csv(self, ctx):
-        print("Fulfilling export csv request")
-
-        exported = self.export_messages()
-
-        filename = 'export.csv'
-        with open(filename, 'w', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(
-                ['id', 'approved', 'author', 'content', 'created_at', 'edited_at', 'guild', 'channel', 'curator', 'curation_date', 'requester', 'request_date']
-            )
-
-            for msg in exported:
-                if 'content' in msg:
-                    writer.writerow([
-                        msg['original_mid'],
-                        True,
-                        msg['author']['name'].strip() if 'author' in msg else '',
-                        msg['content'].strip(),
-                        msg['created_at'],
-                        msg['edited_at'],
-                        msg['guild']['name'].strip(),
-                        msg['channel']['name'].strip(),
-                        msg['metadata']['curated_by']['name'].strip(),
-                        msg['metadata']['curated_at'].strip(),
-                        msg['metadata']['requested_by']['name'].strip(),
-                        msg['metadata']['requested_at'].strip()
-                    ])
-
-                else:
-                    writer.writerow([
-                        msg['original_mid'],
-                        False,
-                        '','','','','','','',''
-                    ])
+    async def optout(self, ctx) -> None:
+        author_hash = user_to_hash(ctx.author)
+        at_cog = self.bot.get_cog("Air")
+        for message_doc in Message.objects(author_hash=author_hash):
+            self.bot.logger.warning("Queueing %s for deletion.", message_doc)
+            at_cog.delete(message_doc)
         
-        await ctx.send(file=discord.File("export.csv"))
-
-    @cog_ext.cog_slash(
-        name='export_json',
-        description='Gives the callee curated data in json format.'
-    )
-    async def export_json(self, ctx):
-        """Gives the callee all of the curated data."""
-
-        print("Fulfilling export json request")
-
-        # Check if author is an admin.
-        if not is_admin(ctx):
-            return await ctx.reply('Insuffient permissions!')
-
-        exported = self.export_messages()
-
-        # Write to a file.
-        filename = 'export.json'
-        with open(filename, 'w') as file:
-            json.dump(exported, file, indent=4)
-
-        # Send to callee.
-        with open(filename, 'r') as file:
-            await ctx.send(file=discord.File(file))
+        # Send a message after queueing all for deletion.
+        await ctx.reply(
+            "Your messages have successfully been queued for deletion and will"
+            " be promptly removed from our dataset. Please contact a researcher"
+            " from The Observatory if you have any questions."
+        )
 
 def setup(bot):
-    cog = AdminCog(bot)
+    cog = Admin(bot)
     bot.add_cog(cog)
