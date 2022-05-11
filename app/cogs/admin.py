@@ -48,6 +48,26 @@ class Admin(Extension):
 
         await ctx.reply("Done!")
 
+    @commands.command(name='smovebridgehere')
+    @commands.is_owner()
+    async def move_bridge_here(self, ctx):
+        sat_guild = ctx.guild
+        sat_channel = ctx.channel
+
+        guild = Guild.objects(id=sat_guild.id).first()
+        bridge = Special.objects(guild=guild, stype=SpecialType.BRIDGE).first()
+
+        old_channel = await self.bot.fetch_channel(bridge.channel.id)
+        bridge.delete()
+
+        print(f"moving bridge {old_channel} ({old_channel.id}) -> {sat_channel} ({sat_channel.id})")
+
+        Special.set(sat_guild, SpecialType.BRIDGE, sat_channel)
+        
+        bridge_cog = self.bot.get_cog("Bridge")
+        bridge_cog.reset_channel_group(old_channel)
+        bridge_cog.set_channel_group(sat_channel, str(sat_guild.id))
+
     @commands.command(name='smanualsetup')
     @commands.is_owner()
     async def manual_setup(self, ctx, pending_id, approved_id, bridge_id):

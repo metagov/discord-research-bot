@@ -34,6 +34,14 @@ class Bridge(Extension):
         return channels
 
     async def replicate(self, channel: discord.TextChannel, message) -> None:
+        # try:
+        #     webhook = await channel.create_webhook(name=message.author.name)
+        # except discord.errors.HTTPException: # max webhooks
+        #     print("clearing webhooks")
+        #     hooks = await channel.webhooks()
+        #     for h in hooks:
+        #         await h.delete()
+        
         webhook = await channel.create_webhook(name=message.author.name)
 
         await webhook.send(
