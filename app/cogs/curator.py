@@ -135,62 +135,29 @@ class CurationContext:
             await self.on_delete_pending(bot)
 
     def create_request_preview(self) -> discord.Embed:
-        link = "https://rmit.edu.au/research/centres-collaborations/derc/" + \
-            "cooperation-through-code/crypto-governance-observatory"
-
         embed = message_to_embed(self.message)
         embed.add_field(
             name="Introduction",
             inline=False,
-            value=(
-                "Hello from your Crypto-Governance Observatory! We're a team of"
-                " researchers interested in the power of community governance."
-                f" Find out more about us [here]({link}). Your post was"
-                " highlighted by another use who thought it was interesting and"
-                " we would like to use it in our research."
-            ),
+            value=(self.bot.responses.introduction_message),
         )
 
         embed.add_field(
             name="Permission",
             inline=False,
-            value=(
-                "We're asking for permission to quote you in our research. If"
-                " you agree, other posts that you have made in this Discord"
-                " server may also be flagged and quoted in our research. Those"
-                " posts will be included in our dataset, but you will receive a"
-                " direct message every time one of your posts is flagged giving"
-                " you the option to have that post removed from our data."
-                " You may also withdraw your consent entirely at any time, in"
-                " which case none of your posts will be quoted in any research"
-                " publications."
-            ),
+            value=(self.bot.responses.permission_message),
         )
 
         embed.add_field(
             name="Consent Message",
             inline=False,
-            value=(
-                "Do you consent to participate in the research and have your"
-                " your posts that are relevant to the research topic included"
-                " in our data?\n"
-                " • Yes, you may quote my posts and attribute them to my"
-                " Discord handle.\n"
-                " • Yes, you may quote my posts anonymously, do not use my"
-                " Discord handle or any other identifying information.\n"
-                " • No, you may not quote my posts in your research.\n"
-            )
+            value=(self.bot.responses.consent_message)
         )
 
         embed.add_field(
             name="Get Involved",
             inline=False,
-            value=(
-                " If you want to get more involved in The Observatory, we have"
-                " awesome NFTs available for participants. Just join the"
-                " #Observatory Channel in the Discord server. Thanks for"
-                " helping us to understand the future of governance."
-            )
+            value=(self.bot.responses.get_involved_message)
         )
 
         return embed
@@ -201,21 +168,18 @@ class CurationContext:
 
     def create_delete_preview(self, bot) -> discord.Embed:
         author_document = User.record(self.message.author)
-        text = ""
+        opt_in_status = ""
 
         if author_document.choice not in [Choice.YES, Choice.ANONYMOUS]:
             bot.logger.warning("Choice of %s was unexpected!", author_document)
         else:
-            text = " You are currently opted-in"
-            text += "." if author_document.choice == Choice.YES else ", anonymously."
+            opt_in_status = "You are currently opted-in"
+            opt_in_status += "." if author_document.choice == Choice.YES else ", anonymously."
 
         embed = message_to_embed(self.message)
         embed.add_field(
             name="Removal",
-            value=(
-                f"A message of yours has just been added to our dataset.{text}"
-                " You can have it removed by clicking the button below."
-            ),
+            value=(self.bot.responses.prompt_delete_message.format(opt_in_status)),
         )
 
         return embed
@@ -339,11 +303,7 @@ class CurationContext:
         embed = message_to_embed(self.message, anonymous)
         embed.add_field(
             name="Curated",
-            value=(
-                "This message has been curated by researchers from The"
-                " Observatory. To submit a message for review, react to it with"
-                " the '🔭' emoji."
-            ),
+            value=(self.bot.responses.on_curation_message),
         )
 
         bridge_message = await bridge_channel.send(embed=embed)
@@ -457,18 +417,10 @@ class Curator(Extension):
         # Check if the time limit for this message has been exceeded.
         days_limit = 10
         if curation_context.is_older_than(days=days_limit):
-            return await context.reply(
-                f"Sorry, but the time limit of {days_limit} days have passed"
-                " since the message was added to our dataset. Please contact"
-                " a researcher from The Observatory if you have any questions."
-            )
+            return await context.reply(self.bot.responses.on_delete_fail_message.format(days_limit))
 
         curation_context.on_message_deleted(self.bot)
-        await context.reply(
-            "Your message has successfully been queued for deletion and will"
-            " be promptly removed from our dataset. Please contact a researcher"
-            " from The Observatory if you have any questions."
-        )
+        await context.reply(self.bot.responses.on_delete_success_message)
 
     # Commands
     # ========

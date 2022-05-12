@@ -100,11 +100,7 @@ class Admin(Extension):
             at_cog.delete(message_doc)
         
         # Send a message after queueing all for deletion.
-        await ctx.reply(
-            "Your messages have successfully been queued for deletion and will"
-            " be promptly removed from our dataset. Please contact a researcher"
-            " from The Observatory if you have any questions."
-        )
+        await ctx.reply(self.bot.responses.on_opt_out_message)
 
 def setup(bot):
     cog = Admin(bot)

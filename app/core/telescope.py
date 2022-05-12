@@ -27,6 +27,7 @@ class Telescope(commands.Bot):
 
         # A place to keep all of our settings.
         self.settings = kwargs.pop('settings')
+        self.responses = kwargs.pop('responses')
 
         # Automatically load all of our extensions.
         for _, name, _ in self.__iter_namespace(cogs):
