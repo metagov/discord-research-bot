@@ -1,6 +1,7 @@
 from core.helpers import user_to_hash
 from models.special import Special, SpecialType
 from core.extension import Extension
+from core.responses import responses
 from models.message import Message
 from discord_slash import cog_ext
 from discord.ext import commands
@@ -100,11 +101,7 @@ class Admin(Extension):
             at_cog.delete(message_doc)
         
         # Send a message after queueing all for deletion.
-        await ctx.reply(
-            "Your messages have successfully been queued for deletion and will"
-            " be promptly removed from our dataset. Please contact a researcher"
-            " from The Observatory if you have any questions."
-        )
+        await ctx.reply(responses.on_opt_out_message)
 
 def setup(bot):
     cog = Admin(bot)
