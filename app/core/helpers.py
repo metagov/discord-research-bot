@@ -22,6 +22,10 @@ def get_token(name) -> str:
         sys.exit(1)
     return os.environ[name]
 
+def check_observatory_set(telescope):
+    if not telescope.settings.observatory:
+        logger.critical('Observatory guild id is not set, cannot continue!')
+        quit(1)
 
 def user_to_hash(user) -> str:
     """Convert user or integer to hexadecimal digest.

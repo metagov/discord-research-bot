@@ -1,7 +1,7 @@
 from core.telescope import Telescope
 from core.settings import Settings
 from core.responses import Responses
-from core.helpers import get_token
+from core.helpers import get_token, check_observatory_set
 from mongoengine import connect
 from dotenv import load_dotenv
 from core import log
@@ -15,6 +15,8 @@ telescope = Telescope(
     airtable_token=get_token('AIRTABLE_TOKEN'),
     settings=Settings(),
 )
+
+check_observatory_set(telescope)
 
 connect(telescope.settings.database)
 telescope.run()

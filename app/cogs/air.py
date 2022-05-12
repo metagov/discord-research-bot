@@ -1,4 +1,5 @@
 from asyncio.tasks import sleep
+from signal import raise_signal
 from core.extension import Extension
 from airtable import Airtable
 from discord.ext import tasks
@@ -6,10 +7,23 @@ from models.message import Message
 from models.comment import Comment
 from core.settings import Settings
 import discord
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Air(Extension):
     def __init__(self, bot):
         self.bot = bot
+
+
+        if not self.bot.settings.base_id:
+            logger.critical('Airtable base id is not set, cannot continue!')
+            quit(1)
+
+        if not self.bot.settings.table_name:
+            logger.critical('Airtable table name is not set, cannot continue!')
+            quit(1)
+
         self.table = Airtable(
             self.bot.settings.base_id,
             self.bot.settings.table_name,
