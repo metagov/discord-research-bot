@@ -14,3 +14,5 @@ class Responses:
         
         except json.JSONDecodeError:
             print("Error: responses.json is not a valid json")
+
+responses = Responses()

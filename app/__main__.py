@@ -14,7 +14,6 @@ telescope = Telescope(
     discord_token=get_token('DISCORD_TOKEN'),
     airtable_token=get_token('AIRTABLE_TOKEN'),
     settings=Settings(),
-    responses=Responses()
 )
 
 connect(telescope.settings.database)

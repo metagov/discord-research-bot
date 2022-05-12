@@ -12,6 +12,8 @@ from core.helpers import (
     message_to_embed,
 )
 
+from core.responses import responses
+
 from discord_slash import cog_ext, ComponentContext
 from discord_slash import ComponentMessage
 from discord.ext import commands
@@ -139,25 +141,25 @@ class CurationContext:
         embed.add_field(
             name="Introduction",
             inline=False,
-            value=(self.bot.responses.introduction_message),
+            value=(responses.introduction_message),
         )
 
         embed.add_field(
             name="Permission",
             inline=False,
-            value=(self.bot.responses.permission_message),
+            value=(responses.permission_message),
         )
 
         embed.add_field(
             name="Consent Message",
             inline=False,
-            value=(self.bot.responses.consent_message)
+            value=(responses.consent_message)
         )
 
         embed.add_field(
             name="Get Involved",
             inline=False,
-            value=(self.bot.responses.get_involved_message)
+            value=(responses.get_involved_message)
         )
 
         return embed
@@ -179,7 +181,7 @@ class CurationContext:
         embed = message_to_embed(self.message)
         embed.add_field(
             name="Removal",
-            value=(self.bot.responses.prompt_delete_message.format(opt_in_status)),
+            value=(responses.prompt_delete_message.format(opt_in_status)),
         )
 
         return embed
@@ -303,7 +305,7 @@ class CurationContext:
         embed = message_to_embed(self.message, anonymous)
         embed.add_field(
             name="Curated",
-            value=(self.bot.responses.on_curation_message),
+            value=(responses.on_curation_message),
         )
 
         bridge_message = await bridge_channel.send(embed=embed)
@@ -417,10 +419,10 @@ class Curator(Extension):
         # Check if the time limit for this message has been exceeded.
         days_limit = 10
         if curation_context.is_older_than(days=days_limit):
-            return await context.reply(self.bot.responses.on_delete_fail_message.format(days_limit))
+            return await context.reply(responses.on_delete_fail_message.format(days_limit))
 
         curation_context.on_message_deleted(self.bot)
-        await context.reply(self.bot.responses.on_delete_success_message)
+        await context.reply(responses.on_delete_success_message)
 
     # Commands
     # ========
