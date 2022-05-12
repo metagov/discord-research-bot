@@ -7,5 +7,6 @@
     "prompt_delete_message": "A message of yours has just been added to our dataset. {} You can have it removed by clicking the button below.",
     "on_delete_success_message": "Your message has successfully been queued for deletion and will be promptly removed from our dataset. Please contact a researcher from The Observatory if you have any questions.",
     "on_delete_fail_message": "Sorry, but the time limit of {} days have passed since the message was added to our dataset. Please contact a researcher from The Observatory if you have any questions.",
-    "on_opt_out_message": "Your messages have successfully been queued for deletion and will be promptly removed from our dataset. Please contact a researcher from The Observatory if you have any questions."
+    "on_opt_out_message": "Your messages have successfully been queued for deletion and will be promptly removed from our dataset. Please contact a researcher from The Observatory if you have any questions.",
+    "closed_dm_message": "A researcher has tagged one of your messages, but we are unable to reach you because your DMs are closed. You can enable 'Allow direct messages from server members' in your Privacy & Safety settings or reach out to a researcher if you do not want to be contacted again."
 }

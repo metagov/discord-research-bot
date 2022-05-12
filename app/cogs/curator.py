@@ -202,7 +202,6 @@ class CurationContext:
 
     async def on_request_permission(self, bot) -> None:
         bot.logger.info("Requesting permission for %s.", self.message)
-        await self.disable_components(create_pending_arow)
 
         # Update the fields on the original message document.
         self.message_document.status = MessageStatus.REQUESTED
@@ -211,10 +210,22 @@ class CurationContext:
         self.message_document.save()
 
         # Send the request message to the author.
-        request_message = await self.message.author.send(
-            embed=self.create_request_preview(),
-            components=[create_request_arow()],
-        )
+        try:
+            request_message = await self.message.author.send(
+                embed=self.create_request_preview(),
+                components=[create_request_arow()],
+            )
+        except discord.Forbidden as e:
+            # catches the "Cannot send messages to this user" error
+            if e.code == 50007:
+                await self.message.channel.send(self.message.author.mention + ' ' + responses.closed_dm_message)
+                return
+            # reraises other errors
+            else:
+                raise e
+
+        # disables request button only if DM can be sent
+        await self.disable_components(create_pending_arow)
 
         # Send the latest comment from a researcher as well.
         comment_doc = Comment.objects(original=self.message_document).first()
