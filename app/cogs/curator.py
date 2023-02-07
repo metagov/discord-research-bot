@@ -217,8 +217,10 @@ class CurationContext:
             )
         except discord.Forbidden as e:
             # catches the "Cannot send messages to this user" error
+
             if e.code == 50007:
                 await self.message.channel.send(self.message.author.mention + ' ' + responses.closed_dm_message)
+                await self.alternate.reply("This user has their DMs closed, and they have been sent a message informing them. Pressing request again will retry this request, so please use sparingly.")
                 return
             # reraises other errors
             else:
@@ -344,7 +346,7 @@ class Curator(Extension):
                 atype__in=[AlternateType.PENDING, AlternateType.FULFILLED],
             ).first()
 
-            if alternate:
+            if alternate and not message.author.bot:
                 # Save this message as a comment of original message.
                 Comment.save(alternate.original, message)
                 await message.reply("Comment added! 👍")
