@@ -1,3 +1,6 @@
 mongoengine==0.23.1
 rich==11.0.0
 python-airtable==0.5
+discord.py==1.7.3
+discord-py-slash-command==2.4.2
+python-dotenv
