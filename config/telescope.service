@@ -1,0 +1,11 @@
+[Unit]
+Description=Telescope Bot Service
+After=network.target
+
+[Service]
+WorkingDirectory=/root/discord-research-bot
+ExecStart=python3 app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
