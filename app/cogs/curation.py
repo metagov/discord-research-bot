@@ -35,7 +35,7 @@ class Curation(commands.Cog):
 
         msg.save()
 
-        embed = components.embed_from_message(message)
+        embed = components.message_to_embed(message)
         embed.add_field(
             name="Curated By",
             value=reaction.member.global_name,

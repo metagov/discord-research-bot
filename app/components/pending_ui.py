@@ -2,7 +2,7 @@ import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 from models import MessageModel
-from .functions import construct_view
+from .functions import construct_view, message_to_embed
 from .consent_ui import construct_consent_view
 
 class DisabledRequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9]+)'):
@@ -46,14 +46,10 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
         await interaction.message.edit(view=updated_view)
 
         guild = interaction.client.get_guild(msg.guild_id)
-        print(msg.guild_id, guild)
         author = guild.get_member(msg.author_id)
-        print(msg.author_id, author)
         await interaction.response.send_message(msg.to_json(), ephemeral=True)
 
-        embed = discord.Embed(
-            
-        )
+        embed = message_to_embed
 
         await author.send("What is your consent level?", view=construct_consent_view(self.id))
 

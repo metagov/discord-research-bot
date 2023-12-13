@@ -8,7 +8,7 @@ def construct_view(_id, items):
     
     return view
 
-def embed_from_message(message):
+def message_to_embed(message):
     embed = discord.Embed(
         description=message.content,
         timestamp=message.edited_at or message.created_at

@@ -1,22 +1,15 @@
-from core.telescope import Telescope
-from core.settings import Settings
-from core.responses import Responses
-from core.helpers import get_token, check_observatory_set
-from mongoengine import connect
 from dotenv import load_dotenv
-from core import log
+import os
+from mongoengine import connect
+from telescope import TelescopeBot
 
-
-log.init()
 load_dotenv()
+connect("telescope")
 
-telescope = Telescope(
-    discord_token=get_token('DISCORD_TOKEN'),
-    airtable_token=get_token('AIRTABLE_TOKEN'),
-    settings=Settings(),
-)
+bot_token = os.environ.get('DISCORD_BOT_TOKEN', None)
 
-check_observatory_set(telescope)
+if not bot_token:
+    print("Missing Discord bot token in environment variable")
 
-connect(telescope.settings.database)
-telescope.run()
+bot = TelescopeBot()
+bot.run(bot_token)
