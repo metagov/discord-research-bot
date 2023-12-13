@@ -10,12 +10,13 @@ class Curation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, reaction):
-        print(reaction)
+        if not reaction.guild_id: return
+        if reaction.emoji.name != self.bot.settings.emoji: return
+
         channel = self.bot.get_channel(reaction.channel_id)
         message = await channel.fetch_message(reaction.message_id)
 
         satellite = SatelliteModel.objects(id=message.guild.id).first()
-        # print(satellite)
         pending_channel = self.bot.get_channel(satellite.pending_channel_id)
 
         msg = MessageModel(
@@ -34,17 +35,7 @@ class Curation(commands.Cog):
 
         msg.save()
 
-        embed = discord.Embed(
-            description=message.content,
-            timestamp=message.edited_at or message.created_at
-        )
-        embed.set_author(
-            name=message.author.global_name,
-            icon_url=message.author.display_avatar.url,
-            url=message.jump_url
-        )
-
-        embed.set_footer(text=f"{message.guild.name} - #{message.channel.name}")
+        embed = components.embed_from_message(message)
         embed.add_field(
             name="Curated By",
             value=reaction.member.global_name,
@@ -54,6 +45,3 @@ class Curation(commands.Cog):
         pending_message = await pending_channel.send(
             embed=embed, view=components.construct_pending_view(message.id)
         )
-
-        if (reaction.guild_id is not None) and (reaction.emoji.name == "🔭"):
-            print(f"got telescope reaction on {reaction.guild_id}:{reaction.channel_id}:{reaction.message_id}")
