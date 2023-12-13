@@ -5,9 +5,12 @@ from mongoengine.fields import *
 class MessageModel(Document):
     id                  = IntField(primary_key=True)
     channel_id          = IntField()
+    channel_name        = StringField()
     guild_id            = IntField()
+    guild_name          = StringField()
     author_id           = IntField()
     author_name         = StringField()
+    author_avatar_url   = StringField()
     content             = StringField()
     attachments         = ListField(StringField(), default=list)
 

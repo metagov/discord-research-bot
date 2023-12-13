@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from cogs import Admin, Curation
 from components import *
-from settings import Settings
+from .settings import Settings
 
 class TelescopeBot(commands.Bot):
     def __init__(self):
@@ -19,14 +19,12 @@ class TelescopeBot(commands.Bot):
     async def setup_hook(self):
         guild = discord.Object(id=474736509472473088)
 
-        self.add_dynamic_items(
-            RequestPendingButton,
-            DisabledRequestPendingButton,
-            CancelPendingButton,
-            YesConsentButton,
-            AnonymousConsentButton,
-            NoConsentButton
-        )
+        self.add_dynamic_items(RequestPendingButton)
+        self.add_dynamic_items(DisabledRequestPendingButton)
+        self.add_dynamic_items(CancelPendingButton)
+        self.add_dynamic_items(YesConsentButton)
+        self.add_dynamic_items(AnonymousConsentButton)
+        self.add_dynamic_items(NoConsentButton)
 
         cogs = [Admin, Curation]
         for Cog in cogs:

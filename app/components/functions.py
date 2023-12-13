@@ -15,11 +15,11 @@ def message_to_embed(message):
     )
 
     embed.set_author(
-        name=message.author.global_name,
-        icon_url=message.author.display_avatar.url,
+        name=message.author_name,
+        icon_url=message.author_avatar_url,
         url=message.jump_url
     )
 
-    embed.set_footer(text=f"{message.guild.name} - #{message.channel.name}")
+    embed.set_footer(text=f"{message.guild_name} - #{message.channel_name}")
 
     return embed

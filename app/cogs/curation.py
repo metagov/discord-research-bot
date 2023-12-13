@@ -20,28 +20,30 @@ class Curation(commands.Cog):
         pending_channel = self.bot.get_channel(satellite.pending_channel_id)
 
         msg = MessageModel(
-            id          = message.id,
-            channel_id  = message.channel.id,
-            guild_id    = message.guild.id,
-            author_id   = message.author.id,
-            author_name = message.author.name,
-            content     = message.content,
-            attachments = message.attachments,
+            id                  = message.id,
+            channel_id          = message.channel.id,
+            channel_name        = message.channel.name,
+            guild_id            = message.guild.id,
+            guild_name          = message.guild.name,
+            author_id           = message.author.id,
+            author_name         = message.author.name,
+            author_avatar_url   = message.author.display_avatar.url,
+            content             = message.content,
+            attachments         = message.attachments,
 
-            created_at  = message.created_at,
-            edited_at   = message.edited_at,
-            jump_url    = message.jump_url
+            created_at          = message.created_at,
+            edited_at           = message.edited_at,
+            jump_url            = message.jump_url
         )
 
         msg.save()
 
-        embed = components.message_to_embed(message)
+        embed = components.message_to_embed(msg)
         embed.add_field(
             name="Curated By",
             value=reaction.member.global_name,
             inline=False
         )
 
-        pending_message = await pending_channel.send(
-            embed=embed, view=components.construct_pending_view(message.id)
+        pending_message = await pending_channel.send(embed=embed, view=components.construct_pending_view(message.id)
         )

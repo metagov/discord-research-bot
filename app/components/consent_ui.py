@@ -21,6 +21,7 @@ class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
         return cls(_id)
     
     async def callback(self, interaction):
+        print("yes consent button callback")
         await interaction.response.send_message("yes consent " + str(self.id), ephemeral=True)
 
 
@@ -41,6 +42,7 @@ class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]
         return cls(_id)
     
     async def callback(self, interaction):
+        print("anon consent button callback")
         await interaction.response.send_message("anon consent " + str(self.id), ephemeral=True)
 
 
@@ -61,6 +63,7 @@ class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
         return cls(_id)
     
     async def callback(self, interaction):
+        print("no consent button callback")
         await interaction.response.send_message("no consent " + str(self.id), ephemeral=True)
 
 def construct_consent_view(_id):

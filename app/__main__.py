@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 from mongoengine import connect
-from telescope import TelescopeBot
+from core.telescope import TelescopeBot
 
 load_dotenv()
 connect("telescope")
