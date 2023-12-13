@@ -4,6 +4,8 @@ from item import RequestPendingButton, CancelPendingButton, construct_view
 from model import MessageModel, SatelliteModel
 from mongoengine import connect
 
+from cogs import Admin
+
 connect("telescope")
 
 class TelescopeBot(commands.Bot):
@@ -19,8 +21,11 @@ class TelescopeBot(commands.Bot):
     async def setup_hook(self):
         self.add_dynamic_items()
     
-    async def on_ready(self):
-        await self.tree.sync(guild=discord.Object(id=474736509472473088))
+    async def setup_hook(self):
+        guild = discord.Object(id=474736509472473088)
+        # await self.load_extension("cog_test")
+        await self.add_cog(Admin(self), guild=guild)
+        await self.tree.sync(guild=guild)
         print(f"Logged in as {self.user}")
 
 
@@ -76,4 +81,3 @@ async def on_raw_reaction_add(reaction):
     if (reaction.guild_id is not None) and (reaction.emoji.name == "🔭"):
         print(f"got telescope reaction on {reaction.guild_id}:{reaction.channel_id}:{reaction.message_id}")
 
-bot.run("")
