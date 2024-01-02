@@ -40,7 +40,12 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
     
     async def callback(self, interaction):
         print("request pending button callback")
-        # await interaction.response.defer()
+
+        await interaction.response.defer(thinking=True)
+        
+        import time
+        time.sleep(5)
+        
         msg = MessageModel.objects(pk=self.id).first()
 
         updated_view = View.from_message(interaction.message, timeout=None)
@@ -81,7 +86,13 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
             value=(responses.get_involved_message)
         )
 
-        await author.send(embed=embed, view=construct_consent_view(self.id))
+        try:
+            await author.send(embed=embed, view=construct_consent_view(self.id))
+        except discord.errors.Forbidden as e:
+            if e.code == 50007:
+                await interaction.followup.send("This user has their DMs closed, and they have been sent a message informing them. Pressing request again will retry this request, so please use sparingly.")
+            else:
+                raise e
 
 
 class CancelPendingButton(DynamicItem[Button], template=r'cancel:pending:([0-9]+)'):
