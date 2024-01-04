@@ -17,7 +17,7 @@ class TelescopeBot(commands.Bot):
         self.settings = Settings()
     
     async def setup_hook(self):
-        guild = discord.Object(id=474736509472473088)
+        observatory = await self.fetch_guild(self.settings.observatory)
 
         self.add_dynamic_items(RequestPendingButton)
         self.add_dynamic_items(DisabledRequestPendingButton)
@@ -28,10 +28,10 @@ class TelescopeBot(commands.Bot):
 
         cogs = [Admin, Curation]
         for Cog in cogs:
-            await self.add_cog(Cog(self), guild=guild)
+            await self.add_cog(Cog(self), guild=observatory)
 
-        await self.tree.sync(guild=guild)
-        print(f"Logged in as {self.user}")
+        await self.tree.sync(guild=observatory)
+        print(f"Logged in as {self.user} in observatory {observatory}")
 
 
 bot = TelescopeBot()

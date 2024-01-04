@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/root/discord-research-bot
-ExecStart=python3 app
+ExecStart=/root/discord-research-bot/venv/bin/python3 app
 Restart=always
 
 [Install]
