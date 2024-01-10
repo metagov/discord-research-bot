@@ -1,1 +1,0 @@
-Some of the libraries used by this project are no longer accessible, so their source code is preserved here. In order to activate them, they need to be moved into your local Python distributions "dist-packages" directory. For root setup on a Linux distribution this will probably be "/usr/local/lib/python3.x/dist-packages" where x is your Python version.
