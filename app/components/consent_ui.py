@@ -2,7 +2,8 @@ import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 
-from .functions import construct_view
+from .functions import construct_view, message_to_embed
+from core.responses import responses
 from models import UserModel, ConsentStatus
 
 class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
@@ -91,5 +92,71 @@ class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have opted-out of post collection.")
 
+
+class RemoveConsentButton(DynamicItem[Button], template=r'remove:consent:([0-9]+)'):
+    def __init__(self, _id):
+        super().__init__(
+            Button(
+                label="Remove",
+                style=ButtonStyle.danger,
+                custom_id=f"remove:consent:{_id}"
+            )
+        )
+        self.id = _id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match,):
+        _id = int(match[1])
+        return cls(_id)
+    
+    async def callback(self, interaction):
+        updated_view = View.from_message(interaction.message, timeout=None)
+        updated_view.children[0].disabled = True
+            
+        await interaction.message.edit(view=updated_view)
+        await interaction.response.send_message("You have removed this post from the dataset.")
+
+def construct_consent_embed(msg):
+    embed = message_to_embed(msg)
+    embed.add_field(
+        name="Introduction",
+        inline=False,
+        value=(responses.introduction_message),
+    )
+
+    embed.add_field(
+        name="Permission",
+        inline=False,
+        value=(responses.permission_message),
+    )
+
+    embed.add_field(
+        name="Consent Message",
+        inline=False,
+        value=(responses.consent_message)
+    )
+
+    embed.add_field(
+        name="Get Involved",
+        inline=False,
+        value=(responses.get_involved_message)
+    )
+
+    return embed
+
+def construct_removal_embed(msg, consent_status):
+    opt_in_status = "You are currently opted-in" + "." if consent_status == ConsentStatus.YES else " anonymously."
+
+    embed = message_to_embed(msg)
+    embed.add_field(
+        name="Removal",
+        value=(responses.prompt_delete_message.format(opt_in_status))
+    )
+
+    return embed
+
 def construct_consent_view(_id):
     return construct_view(_id, [YesConsentButton, AnonymousConsentButton, NoConsentButton])
+
+def construct_removal_view(_id):
+    return construct_view(_id, [RemoveConsentButton])
