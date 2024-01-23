@@ -1,7 +1,8 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from models import SatelliteModel, MessageModel
+from datetime import datetime
+from models import SatelliteModel, MessageModel, MessageStatus
 import components
 
 class Curation(commands.Cog):
@@ -33,7 +34,13 @@ class Curation(commands.Cog):
 
             created_at          = message.created_at,
             edited_at           = message.edited_at,
-            jump_url            = message.jump_url
+            jump_url            = message.jump_url,
+
+            status              = MessageStatus.TAGGED,
+
+            tagged_by_id        = reaction.member.id,
+            tagged_by_name      = reaction.member.name,
+            tagged_at           = datetime.now()
         )
 
         msg.save()

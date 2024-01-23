@@ -1,7 +1,7 @@
 import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
-from models import MessageModel, UserModel, ConsentStatus
+from models import MessageModel, UserModel, ConsentStatus, MessageStatus
 from .functions import construct_view, message_to_embed
 from .consent_ui import construct_consent_view, construct_removal_view, construct_consent_embed, construct_removal_embed
 
@@ -46,6 +46,14 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
     
     async def callback(self, interaction):        
         msg = MessageModel.objects(pk=self.id).first()
+        msg.status = MessageStatus.REQUESTED
+        msg.requested_by_id = interaction.user.id
+        msg.requested_by_name = interaction.user.name
+        # msg.requested_at =
+        msg.save()
+
+        print(interaction.created_at, interaction.expires_at)
+
         user = UserModel.objects(pk=msg.author_id).first()
 
         guild = interaction.client.get_guild(msg.guild_id)
@@ -74,7 +82,9 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
                 
         # user has opted-in or opted-in anonymously
         elif (user.consent == ConsentStatus.YES) or (user.consent == ConsentStatus.ANONYMOUS):
-            # TODO: create removal view
+            msg.status = MessageStatus.APPROVED
+            msg.save()
+
             try:
                 await author.send(
                     embed=construct_removal_embed(msg, user.consent),
@@ -87,6 +97,9 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
 
         # user has opted-out
         elif user.consent == ConsentStatus.NO:
+            msg.status = MessageStatus.REJECTED
+            msg.save()
+
             await interaction.response.send_message("This user has refused consent, no request has been sent.")
             return
         

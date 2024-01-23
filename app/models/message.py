@@ -1,6 +1,13 @@
 from mongoengine import Document
 from mongoengine.fields import *
+from enum import Enum
 
+class MessageStatus(Enum):
+    TAGGED      = 'tagged'
+    REQUESTED   = 'requested'
+    APPROVED    = 'approved'
+    REJECTED    = 'rejected'
+    RETRACTED   = 'retracted'
 
 class MessageModel(Document):
     id                  = IntField(primary_key=True)
@@ -18,20 +25,21 @@ class MessageModel(Document):
     edited_at           = DateTimeField()
     jump_url            = StringField()
 
-    curation_id         = IntField()
-    curated_by_id       = IntField()
-    curated_by_name     = StringField()
-    curated_at          = DateTimeField()
+    status              = EnumField(MessageStatus)
 
-    request_id          = IntField()
+    # curation_id         = IntField()
+    tagged_by_id       = IntField()
+    tagged_by_name     = StringField()
+    tagged_at          = DateTimeField()
+
+    # request_id          = IntField()
     requested_by_id     = IntField()
     requested_by_name   = StringField
     requested_at        = DateTimeField()
 
-    approval_id         = IntField()
+    # approval_id         = IntField()
     approved_at         = DateTimeField()
 
-    # status              = EnumField()
-    retraction_id       = IntField()
-    retracted           = BooleanField(default=False)
+    # retraction_id       = IntField()
+    # retracted           = BooleanField(default=False)
 
