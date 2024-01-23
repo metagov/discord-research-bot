@@ -4,7 +4,7 @@ from discord.enums import ButtonStyle
 
 from .functions import construct_view, message_to_embed
 from core.responses import responses
-from models import UserModel, ConsentStatus
+from models import MessageModel, UserModel, ConsentStatus
 
 class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
     def __init__(self, _id):
@@ -23,6 +23,7 @@ class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
         return cls(_id)
     
     async def callback(self, interaction):
+        msg = MessageModel.objects(pk=self.id).first()
         user = UserModel.objects(pk=interaction.user.id).first()
         user.consent = ConsentStatus.YES
         user.save()
@@ -33,6 +34,11 @@ class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
             
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have opted-in to post collection!")
+
+        await interaction.user.send(
+            embed=construct_removal_embed(msg, user.consent),
+            view=construct_removal_view(self.id)
+        )
 
 
 class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]+)'):
@@ -52,6 +58,7 @@ class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]
         return cls(_id)
     
     async def callback(self, interaction):
+        msg = MessageModel.objects(pk=self.id).first()
         user = UserModel.objects(pk=interaction.user.id).first()
         user.consent = ConsentStatus.ANONYMOUS
         user.save()
@@ -62,6 +69,11 @@ class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]
             
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have opted-in to anonymous post collection!")
+
+        await interaction.user.send(
+            embed=construct_removal_embed(msg, user.consent),
+            view=construct_removal_view(self.id)
+        )
 
 
 class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):

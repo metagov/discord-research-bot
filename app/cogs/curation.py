@@ -19,8 +19,6 @@ class Curation(commands.Cog):
         satellite = SatelliteModel.objects(id=message.guild.id).first()
         pending_channel = self.bot.get_channel(satellite.pending_channel_id)
 
-        print("got message", message.content)
-
         msg = MessageModel(
             id                  = message.id,
             channel_id          = message.channel.id,
@@ -40,12 +38,9 @@ class Curation(commands.Cog):
 
         msg.save()
 
-        embed = components.message_to_embed(msg)
-        embed.add_field(
-            name="Curated By",
-            value=reaction.member.global_name,
-            inline=False
-        )
+        print(f"Message {message.id} tagged by user {message.author.name}")
 
-        pending_message = await pending_channel.send(embed=embed, view=components.construct_pending_view(message.id)
+        await pending_channel.send(
+            embed=components.construct_pending_embed(msg, reaction.member.global_name),
+            view=components.construct_pending_view(message.id)
         )

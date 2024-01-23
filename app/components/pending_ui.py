@@ -2,7 +2,7 @@ import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 from models import MessageModel, UserModel, ConsentStatus
-from .functions import construct_view
+from .functions import construct_view, message_to_embed
 from .consent_ui import construct_consent_view, construct_removal_view, construct_consent_embed, construct_removal_embed
 
 
@@ -50,6 +50,8 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
 
         guild = interaction.client.get_guild(msg.guild_id)
         author = guild.get_member(msg.author_id)
+
+        print(f"Message {msg.id} requested by user {interaction.user.name}")
 
         # user is unknown to system or has not set consent status
         if (user is None) or (user.consent == ConsentStatus.UNDECIDED):
@@ -117,6 +119,15 @@ class CancelPendingButton(DynamicItem[Button], template=r'cancel:pending:([0-9]+
     async def callback(self, interaction):
         await interaction.message.delete()
 
+def construct_pending_embed(msg, name):
+    embed = message_to_embed(msg)
+    embed.add_field(
+        name="Curated By",
+        value=name,
+        inline=False
+    )
+
+    return embed
 
 def construct_pending_view(_id):
     return construct_view(_id, [RequestPendingButton, CancelPendingButton])
