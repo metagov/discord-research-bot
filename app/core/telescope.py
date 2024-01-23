@@ -15,6 +15,10 @@ class TelescopeBot(commands.Bot):
         )
 
         self.settings = Settings()
+
+        if not self.settings.observatory:
+            print("Missing observatory guild id in settings.json")
+            quit()
     
     async def setup_hook(self):
         observatory = await self.fetch_guild(self.settings.observatory)
@@ -30,8 +34,6 @@ class TelescopeBot(commands.Bot):
         for Cog in cogs:
             await self.add_cog(Cog(self), guild=observatory)
 
-        await self.tree.sync(guild=observatory)
         print(f"Logged in as {self.user} in observatory {observatory}")
-
 
 bot = TelescopeBot()

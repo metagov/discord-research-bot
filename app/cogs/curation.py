@@ -19,6 +19,8 @@ class Curation(commands.Cog):
         satellite = SatelliteModel.objects(id=message.guild.id).first()
         pending_channel = self.bot.get_channel(satellite.pending_channel_id)
 
+        print("got message", message.content)
+
         msg = MessageModel(
             id                  = message.id,
             channel_id          = message.channel.id,

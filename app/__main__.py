@@ -10,6 +10,7 @@ bot_token = os.environ.get('DISCORD_BOT_TOKEN', None)
 
 if not bot_token:
     print("Missing Discord bot token in environment variable")
+    quit()
 
 bot = TelescopeBot()
 bot.run(bot_token)

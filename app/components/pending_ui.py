@@ -38,26 +38,11 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
         _id = int(match[1])
         return cls(_id)
     
-    async def callback(self, interaction):
-        print("request pending button callback")
-
-        await interaction.response.defer(thinking=True)
-        
-        import time
-        time.sleep(5)
-        
+    async def callback(self, interaction):        
         msg = MessageModel.objects(pk=self.id).first()
-
-        updated_view = View.from_message(interaction.message, timeout=None)
-        updated_view.children[0].disabled = True
-
-        # await interaction.message.edit(view=updated_view)
 
         guild = interaction.client.get_guild(msg.guild_id)
         author = guild.get_member(msg.author_id)
-
-        import time
-        # time.sleep(2)
 
         print(msg.to_json())
 
@@ -88,9 +73,19 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
 
         try:
             await author.send(embed=embed, view=construct_consent_view(self.id))
+
+            updated_view = View.from_message(interaction.message, timeout=None)
+
+            updated_view.children[0].label = "Pending"
+            updated_view.children[0].disabled = True
+            updated_view.remove_item(updated_view.children[1])
+
+            await interaction.message.edit(view=updated_view)
+            await interaction.response.defer()
+            
         except discord.errors.Forbidden as e:
             if e.code == 50007:
-                await interaction.followup.send("This user has their DMs closed, and they have been sent a message informing them. Pressing request again will retry this request, so please use sparingly.")
+                await interaction.response.send_message("This user has their DMs closed, and they have been sent a message informing them. Pressing request again will retry this request, so please use sparingly.")
             else:
                 raise e
 
@@ -112,8 +107,7 @@ class CancelPendingButton(DynamicItem[Button], template=r'cancel:pending:([0-9]+
         return cls(_id)
     
     async def callback(self, interaction):
-        print("cancel pending button callback")
-        await interaction.response.send_message(str(self.id), ephemeral=True)
+        await interaction.message.delete()
 
 
 def construct_pending_view(_id):
