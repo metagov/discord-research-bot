@@ -3,6 +3,7 @@ from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 
 from .functions import construct_view
+from models import UserModel, ConsentStatus
 
 class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
     def __init__(self, _id):
@@ -21,8 +22,16 @@ class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
         return cls(_id)
     
     async def callback(self, interaction):
-        print("yes consent button callback")
-        await interaction.response.send_message("yes consent " + str(self.id), ephemeral=True)
+        user = UserModel.objects(pk=interaction.user.id).first()
+        user.consent = ConsentStatus.YES
+        user.save()
+
+        updated_view = View.from_message(interaction.message, timeout=None)
+        for item in updated_view.children:
+            item.disabled = True
+            
+        await interaction.message.edit(view=updated_view)
+        await interaction.response.send_message("You have opted-in to post collection!")
 
 
 class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]+)'):
@@ -42,8 +51,16 @@ class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]
         return cls(_id)
     
     async def callback(self, interaction):
-        print("anon consent button callback")
-        await interaction.response.send_message("anon consent " + str(self.id), ephemeral=True)
+        user = UserModel.objects(pk=interaction.user.id).first()
+        user.consent = ConsentStatus.ANONYMOUS
+        user.save()
+
+        updated_view = View.from_message(interaction.message, timeout=None)
+        for item in updated_view.children:
+            item.disabled = True
+            
+        await interaction.message.edit(view=updated_view)
+        await interaction.response.send_message("You have opted-in to anonymous post collection!")
 
 
 class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
@@ -63,8 +80,16 @@ class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
         return cls(_id)
     
     async def callback(self, interaction):
-        print("no consent button callback")
-        await interaction.response.send_message("no consent " + str(self.id), ephemeral=True)
+        user = UserModel.objects(pk=interaction.user.id).first()
+        user.consent = ConsentStatus.NO
+        user.save()
+
+        updated_view = View.from_message(interaction.message, timeout=None)
+        for item in updated_view.children:
+            item.disabled = True
+            
+        await interaction.message.edit(view=updated_view)
+        await interaction.response.send_message("You have opted-out of post collection.")
 
 def construct_consent_view(_id):
     return construct_view(_id, [YesConsentButton, AnonymousConsentButton, NoConsentButton])
