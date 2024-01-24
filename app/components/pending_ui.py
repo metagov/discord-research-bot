@@ -77,7 +77,7 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
         # user has opted-in or opted-in anonymously
         elif (user.consent == ConsentStatus.YES) or (user.consent == ConsentStatus.ANONYMOUS):
             try:
-                await approve_message(msg, author)
+                await approve_message(msg, author, interaction.client)
             except discord.errors.Forbidden as e:
                 await handle_forbidden(interaction, e)
                 
@@ -119,11 +119,11 @@ class CancelPendingButton(DynamicItem[Button], template=r'cancel:pending:([0-9]+
     async def callback(self, interaction):
         await interaction.message.delete()
 
-def construct_pending_embed(msg, name):
+def construct_pending_embed(msg):
     embed = message_to_embed(msg)
     embed.add_field(
         name="Curated By",
-        value=name,
+        value=msg.tagged_by_name,
         inline=False
     )
 

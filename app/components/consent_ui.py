@@ -2,9 +2,10 @@ import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 
-from .functions import construct_view, message_to_embed, handle_forbidden
+from .functions import construct_view, message_to_embed
+from .approved_ui import construct_approved_embed
 from core.responses import responses
-from models import MessageModel, UserModel, ConsentStatus, MessageStatus
+from models import MessageModel, UserModel, SatelliteModel, ConsentStatus, MessageStatus
 from datetime import datetime
 
 
@@ -37,7 +38,7 @@ class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have opted-in to post collection!")
 
-        await approve_message(msg, interaction.user)
+        await approve_message(msg, interaction.user, interaction.client)
 
 
 class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]+)'):
@@ -69,7 +70,7 @@ class AnonymousConsentButton(DynamicItem[Button], template=r'anon:consent:([0-9]
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have opted-in to anonymous post collection!")
 
-        await approve_message(msg, interaction.user)
+        await approve_message(msg, interaction.user, interaction.client)
 
 
 class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
@@ -157,8 +158,10 @@ def construct_consent_embed(msg):
 
     return embed
 
-def construct_removal_embed(msg, consent_status):
-    opt_in_status = "You are currently opted-in" + "." if consent_status == ConsentStatus.YES else " anonymously."
+def construct_removal_embed(msg):
+    author = UserModel.objects(pk=msg.author_id).first()
+
+    opt_in_status = "You are currently opted-in" + "." if author.consent == ConsentStatus.YES else " anonymously."
 
     embed = message_to_embed(msg)
     embed.add_field(
@@ -174,7 +177,7 @@ def construct_consent_view(_id):
 def construct_removal_view(_id):
     return construct_view(_id, [RemoveConsentButton])
 
-async def approve_message(msg, user):
+async def approve_message(msg, user, client):
     user_document = UserModel.objects(pk=user.id).first()
 
     msg.status = MessageStatus.APPROVED
@@ -182,8 +185,15 @@ async def approve_message(msg, user):
     msg.save()
 
     await user.send(
-        embed=construct_removal_embed(msg, user_document.consent),
+        embed=construct_removal_embed(msg),
         view=construct_removal_view(msg.id)
     )
 
-    
+    update_view = View.from_message()
+
+    # satellite = SatelliteModel.objects(id=msg.guild_id).first()
+    # approved_channel = client.get_channel(satellite.approved_channel_id)
+
+    # await approved_channel.send(
+    #     embed=construct_approved_embed(msg)
+    # )

@@ -21,22 +21,18 @@ class Admin(commands.Cog):
         approved = await observatory.create_text_channel("Approved Messages", category=category)
 
         satellite = SatelliteModel(
-            id = interaction.guild.id,
-            pending_channel_id = pending.id,
+            id                  = interaction.guild.id,
+            name                = interaction.guild.name,
+            pending_channel_id  = pending.id,
             approved_channel_id = approved.id
         )
         satellite.save()
 
         await interaction.followup.send(content="Setup complete!")
 
-    @app_commands.command(
-        name="sync",
-        description="sync slash command tree"
-    )
-    async def sync_commands(self, interaction):
-        if interaction.user.id == 151856436710866944:
+    @commands.command()
+    async def sync(self, ctx):
+        if ctx.author.id == 151856436710866944:
             observatory = self.bot.get_guild(self.bot.settings.observatory)
             await self.bot.tree.sync(guild=observatory)
-            await interaction.response.send_message("Synced successfully!")
-        else:
-            await interaction.response.send_message("You must be a developer to use this command")
+            await ctx.send("Synced successfully!")
