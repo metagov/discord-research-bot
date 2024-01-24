@@ -2,7 +2,7 @@ import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 
-from .functions import construct_view, message_to_embed
+from .functions import construct_view, message_to_embed, get_interface
 from .approved_ui import construct_approved_embed
 from core.responses import responses
 from models import MessageModel, UserModel, SatelliteModel, ConsentStatus, MessageStatus
@@ -90,6 +90,7 @@ class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
         return cls(_id)
     
     async def callback(self, interaction):
+        msg = MessageModel.objects(pk=self.id).first()
         user = UserModel.objects(pk=interaction.user.id).first()
         user.consent = ConsentStatus.NO
         user.save()
@@ -100,6 +101,8 @@ class NoConsentButton(DynamicItem[Button], template=r'no:consent:([0-9]+)'):
             
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have opted-out of post collection.")
+
+        await reject_message(msg, interaction.user, interaction.client)
 
 
 class RemoveConsentButton(DynamicItem[Button], template=r'remove:consent:([0-9]+)'):
@@ -123,12 +126,11 @@ class RemoveConsentButton(DynamicItem[Button], template=r'remove:consent:([0-9]+
         updated_view.children[0].disabled = True
 
         msg = MessageModel.objects(pk=self.id).first()
-        msg.status = MessageStatus.RETRACTED
-        msg.retracted_at = datetime.utcnow()
-        msg.save()
             
         await interaction.message.edit(view=updated_view)
         await interaction.response.send_message("You have removed this post from the dataset.")
+
+        await retract_message(msg, interaction.user, interaction.client)
 
 def construct_consent_embed(msg):
     embed = message_to_embed(msg)
@@ -178,8 +180,6 @@ def construct_removal_view(_id):
     return construct_view(_id, [RemoveConsentButton])
 
 async def approve_message(msg, user, client):
-    user_document = UserModel.objects(pk=user.id).first()
-
     msg.status = MessageStatus.APPROVED
     msg.approved_at = datetime.utcnow()
     msg.save()
@@ -189,11 +189,36 @@ async def approve_message(msg, user, client):
         view=construct_removal_view(msg.id)
     )
 
-    update_view = View.from_message()
+    interface = await get_interface(msg, client)
 
-    # satellite = SatelliteModel.objects(id=msg.guild_id).first()
-    # approved_channel = client.get_channel(satellite.approved_channel_id)
+    updated_view = View.from_message(interface)
+    updated_view.children[0].label = "Approved"
+    updated_view.children[0].style = ButtonStyle.success
 
-    # await approved_channel.send(
-    #     embed=construct_approved_embed(msg)
-    # )
+    await interface.edit(view=updated_view)
+
+async def reject_message(msg, user, client):
+    msg.status = MessageStatus.REJECTED
+    msg.rejected_at = datetime.utcnow()
+    msg.save()
+
+    interface = await get_interface(msg, client)
+
+    updated_view = View.from_message(interface)
+    updated_view.children[0].label = "Rejected"
+    updated_view.children[0].style = ButtonStyle.danger
+
+    await interface.edit(view=updated_view)
+
+async def retract_message(msg, user, client):
+    msg.status = MessageStatus.RETRACTED
+    msg.retracted_at = datetime.utcnow()
+    msg.save()
+
+    interface = await get_interface(msg, client)
+
+    updated_view = View.from_message(interface)
+    updated_view.children[0].label = "Retracted"
+    updated_view.children[0].style = ButtonStyle.danger
+
+    await interface.edit(view=updated_view)

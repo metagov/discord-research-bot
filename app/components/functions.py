@@ -1,5 +1,6 @@
 import discord
 from discord.ui import View
+from models import SatelliteModel
 
 def construct_view(_id, items):
     view = View(timeout=None)
@@ -23,6 +24,11 @@ def message_to_embed(message):
     embed.set_footer(text=f"{message.guild_name} - #{message.channel_name}")
 
     return embed
+
+async def get_interface(msg, client):
+    satellite = SatelliteModel.objects(id=msg.guild_id).first()
+    pending_channel = client.get_channel(satellite.pending_channel_id)
+    return await pending_channel.fetch_message(msg.interface_id)
 
 async def handle_forbidden(interaction, e):
     if e.code == 50007:

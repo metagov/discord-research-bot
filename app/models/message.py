@@ -26,21 +26,17 @@ class MessageModel(Document):
     jump_url            = StringField()
 
     status              = EnumField(MessageStatus)
+    interface_id        = IntField()
 
-    # curation_id         = IntField()
-    tagged_by_id       = IntField()
-    tagged_by_name     = StringField()
-    tagged_at          = DateTimeField()
+    tagged_by_id        = IntField()
+    tagged_by_name      = StringField()
+    tagged_at           = DateTimeField()
 
-    # request_id          = IntField()
     requested_by_id     = IntField()
     requested_by_name   = StringField()
     requested_at        = DateTimeField()
 
-    # approval_id         = IntField()
     approved_at         = DateTimeField()
-
-    # retraction_id       = IntField()
-    # retracted           = BooleanField(default=False)
-    retracted_at       = DateTimeField()
+    rejected_at         = DateTimeField()
+    retracted_at        = DateTimeField()
 

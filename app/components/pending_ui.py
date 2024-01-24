@@ -3,7 +3,7 @@ from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 from models import MessageModel, UserModel, ConsentStatus, MessageStatus
 from .functions import construct_view, message_to_embed, handle_forbidden
-from .consent_ui import construct_consent_view, construct_removal_view, construct_consent_embed, construct_removal_embed, approve_message
+from .consent_ui import construct_consent_view, construct_consent_embed, approve_message, reject_message
 from datetime import datetime
 
 
@@ -55,6 +55,11 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
 
         print(f"Message {msg.id} requested by user {interaction.user.name}")
 
+        updated_view = View.from_message(interaction.message, timeout=None)
+        updated_view.children[0].disabled = True
+        updated_view.remove_item(updated_view.children[1])
+        await interaction.message.edit(view=updated_view)
+
         # user is unknown to system or has not set consent status
         if (user is None) or (user.consent == ConsentStatus.UNDECIDED):
             user = UserModel(
@@ -73,6 +78,9 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
             except discord.errors.Forbidden as e:
                 await handle_forbidden(interaction, e)
 
+            updated_view.children[0].label = "Pending"
+            updated_view.children[0].style = ButtonStyle.secondary
+            await interaction.message.edit(view=updated_view)
                 
         # user has opted-in or opted-in anonymously
         elif (user.consent == ConsentStatus.YES) or (user.consent == ConsentStatus.ANONYMOUS):
@@ -83,20 +91,8 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
                 
         # user has opted-out
         elif user.consent == ConsentStatus.NO:
-            msg.status = MessageStatus.REJECTED
-            msg.save()
-
-            await interaction.response.send_message("This user has refused consent, no request has been sent.")
-            return
+            await reject_message(msg, author, interaction.client)
         
-        updated_view = View.from_message(interaction.message, timeout=None)
-
-        updated_view.children[0].label = "Pending"
-        updated_view.children[0].style = ButtonStyle.secondary
-        updated_view.children[0].disabled = True
-        updated_view.remove_item(updated_view.children[1])
-
-        await interaction.message.edit(view=updated_view)
         await interaction.response.defer()
             
 

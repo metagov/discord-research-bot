@@ -29,6 +29,7 @@ class TelescopeBot(commands.Bot):
         self.add_dynamic_items(YesConsentButton)
         self.add_dynamic_items(AnonymousConsentButton)
         self.add_dynamic_items(NoConsentButton)
+        self.add_dynamic_items(RemoveConsentButton)
 
         cogs = [Admin, Curation]
         for Cog in cogs:

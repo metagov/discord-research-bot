@@ -53,7 +53,10 @@ class Curation(commands.Cog):
 
         print(f"Message {message.id} tagged by user {message.author.name}")
 
-        await pending_channel.send(
+        interface = await pending_channel.send(
             embed=components.construct_pending_embed(msg),
             view=components.construct_pending_view(message.id)
         )
+
+        msg.interface_id = interface.id
+        msg.save()
