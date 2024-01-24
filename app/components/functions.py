@@ -23,3 +23,9 @@ def message_to_embed(message):
     embed.set_footer(text=f"{message.guild_name} - #{message.channel_name}")
 
     return embed
+
+async def handle_forbidden(interaction, e):
+    if e.code == 50007:
+        await interaction.response.send_message("This user has their DMs closed, and they have been sent a message informing them. Pressing request again will retry this request, so please use sparingly.")
+    else:
+        raise e

@@ -2,15 +2,10 @@ import discord
 from discord.ui import DynamicItem, Button, View
 from discord.enums import ButtonStyle
 from models import MessageModel, UserModel, ConsentStatus, MessageStatus
-from .functions import construct_view, message_to_embed
-from .consent_ui import construct_consent_view, construct_removal_view, construct_consent_embed, construct_removal_embed
+from .functions import construct_view, message_to_embed, handle_forbidden
+from .consent_ui import construct_consent_view, construct_removal_view, construct_consent_embed, construct_removal_embed, approve_message
+from datetime import datetime
 
-
-async def handle_forbidden(interaction, e):
-    if e.code == 50007:
-        await interaction.response.send_message("This user has their DMs closed, and they have been sent a message informing them. Pressing request again will retry this request, so please use sparingly.")
-    else:
-        raise e
 
 class DisabledRequestPendingButton(DynamicItem[Button], template=r'disabledrequest:pending:([0-9]+)'):
     def __init__(self, _id):
@@ -46,13 +41,12 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
     
     async def callback(self, interaction):        
         msg = MessageModel.objects(pk=self.id).first()
+
         msg.status = MessageStatus.REQUESTED
         msg.requested_by_id = interaction.user.id
         msg.requested_by_name = interaction.user.name
-        # msg.requested_at =
+        msg.requested_at = datetime.utcnow()
         msg.save()
-
-        print(interaction.created_at, interaction.expires_at)
 
         user = UserModel.objects(pk=msg.author_id).first()
 
@@ -82,19 +76,11 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
                 
         # user has opted-in or opted-in anonymously
         elif (user.consent == ConsentStatus.YES) or (user.consent == ConsentStatus.ANONYMOUS):
-            msg.status = MessageStatus.APPROVED
-            msg.save()
-
             try:
-                await author.send(
-                    embed=construct_removal_embed(msg, user.consent),
-                    view=construct_removal_view(self.id)
-                )
-            
+                await approve_message(msg, author)
             except discord.errors.Forbidden as e:
                 await handle_forbidden(interaction, e)
                 
-
         # user has opted-out
         elif user.consent == ConsentStatus.NO:
             msg.status = MessageStatus.REJECTED
@@ -106,6 +92,7 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
         updated_view = View.from_message(interaction.message, timeout=None)
 
         updated_view.children[0].label = "Pending"
+        updated_view.children[0].style = ButtonStyle.secondary
         updated_view.children[0].disabled = True
         updated_view.remove_item(updated_view.children[1])
 

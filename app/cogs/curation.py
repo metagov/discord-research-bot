@@ -40,7 +40,7 @@ class Curation(commands.Cog):
 
             tagged_by_id        = reaction.member.id,
             tagged_by_name      = reaction.member.name,
-            tagged_at           = datetime.now()
+            tagged_at           = datetime.utcnow()
         )
 
         msg.save()

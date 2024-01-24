@@ -34,7 +34,7 @@ class MessageModel(Document):
 
     # request_id          = IntField()
     requested_by_id     = IntField()
-    requested_by_name   = StringField
+    requested_by_name   = StringField()
     requested_at        = DateTimeField()
 
     # approval_id         = IntField()
@@ -42,4 +42,5 @@ class MessageModel(Document):
 
     # retraction_id       = IntField()
     # retracted           = BooleanField(default=False)
+    retracted_at       = DateTimeField()
 
