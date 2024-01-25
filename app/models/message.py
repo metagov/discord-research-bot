@@ -12,10 +12,18 @@ class MessageStatus(Enum):
 
 class MessageModel(Document):
     id                  = IntField(primary_key=True)
+    
     channel_id          = IntField()
     channel_name        = StringField()
+    channel_type        = StringField()
+
+    parent_channel_id   = IntField()
+    parent_channel_name = StringField()
+    parent_channel_type = StringField()
+
     guild_id            = IntField()
     guild_name          = StringField()
+    
     content             = StringField()
     attachments         = ListField(StringField(), default=list)
 

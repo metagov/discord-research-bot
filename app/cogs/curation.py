@@ -1,5 +1,5 @@
 import discord
-from discord import app_commands
+from discord import Thread
 from discord.ext import commands
 from datetime import datetime
 from models import SatelliteModel, MessageModel, MessageStatus
@@ -28,13 +28,18 @@ class Curation(commands.Cog):
 
         msg = MessageModel(
             id                  = message.id,
+
             channel_id          = message.channel.id,
             channel_name        = message.channel.name,
+            channel_type        = str(message.channel.type),
+
             guild_id            = message.guild.id,
             guild_name          = message.guild.name,
+
             author_id           = message.author.id,
             author_name         = message.author.name,
             author_avatar_url   = message.author.display_avatar.url,
+
             content             = message.content,
             attachments         = message.attachments,
 
@@ -49,6 +54,11 @@ class Curation(commands.Cog):
             tagged_at           = datetime.utcnow()
         )
 
+        if type(message.channel) == Thread:
+            msg.parent_channel_id = message.channel.parent.id
+            msg.parent_channel_name = message.channel.parent.name
+            msg.parent_channel_type = str(message.channel.parent.type)
+
         msg.save()
 
         print(f"Message {message.id} tagged by user {message.author.name}")
@@ -60,3 +70,4 @@ class Curation(commands.Cog):
 
         msg.interface_id = interface.id
         msg.save()
+
