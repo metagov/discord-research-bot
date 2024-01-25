@@ -1,6 +1,7 @@
 from mongoengine import Document
 from mongoengine.fields import *
 from enum import Enum
+from .comment import CommentModel
 
 class MessageStatus(Enum):
     TAGGED      = 'tagged'
@@ -39,4 +40,6 @@ class MessageModel(Document):
     approved_at         = DateTimeField()
     rejected_at         = DateTimeField()
     retracted_at        = DateTimeField()
+
+    comments            = ListField(ReferenceField(CommentModel))
 

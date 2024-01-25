@@ -23,13 +23,16 @@ class TelescopeBot(commands.Bot):
     async def setup_hook(self):
         observatory = await self.fetch_guild(self.settings.observatory)
 
-        self.add_dynamic_items(RequestPendingButton)
-        self.add_dynamic_items(DisabledRequestPendingButton)
-        self.add_dynamic_items(CancelPendingButton)
-        self.add_dynamic_items(YesConsentButton)
-        self.add_dynamic_items(AnonymousConsentButton)
-        self.add_dynamic_items(NoConsentButton)
-        self.add_dynamic_items(RemoveConsentButton)
+        self.add_dynamic_items(
+            RequestPendingButton,
+            DisabledRequestPendingButton,
+            CancelPendingButton,
+            YesConsentButton,
+            AnonymousConsentButton,
+            NoConsentButton,
+            RemoveConsentButton,
+            AddCommentButton
+        )
 
         cogs = [Admin, Curation]
         for Cog in cogs:

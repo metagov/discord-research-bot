@@ -1,7 +1,7 @@
 import discord
-from discord.ui import DynamicItem, Button, View
-from discord.enums import ButtonStyle
-from models import MessageModel, UserModel, ConsentStatus, MessageStatus
+from discord.ui import DynamicItem, Button, View, Modal, TextInput
+from discord.enums import ButtonStyle, TextStyle
+from models import MessageModel, UserModel, CommentModel, ConsentStatus, MessageStatus
 from .functions import construct_view, message_to_embed, handle_forbidden
 from .consent_ui import construct_consent_view, construct_consent_embed, approve_message, reject_message
 from datetime import datetime
@@ -28,7 +28,7 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
         super().__init__(
             Button(
                 label="Request",
-                style=ButtonStyle.success,
+                style=ButtonStyle.primary,
                 custom_id=f"request:pending:{_id}"
             )
         )
@@ -57,7 +57,7 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
 
         updated_view = View.from_message(interaction.message, timeout=None)
         updated_view.children[0].disabled = True
-        updated_view.remove_item(updated_view.children[1])
+        updated_view.remove_item(updated_view.children[2])
         await interaction.message.edit(view=updated_view)
 
         # user is unknown to system or has not set consent status
@@ -115,6 +115,55 @@ class CancelPendingButton(DynamicItem[Button], template=r'cancel:pending:([0-9]+
     async def callback(self, interaction):
         await interaction.message.delete()
 
+class Comment(Modal, title="Add Comment"):
+    comment = TextInput(
+        label="Comment",
+        style=TextStyle.long,
+        placeholder="Write a comment here...",
+        required=False,
+        max_length=300
+    )
+
+    async def on_submit(self, interaction):
+
+        print(interaction.id, interaction.message.id)
+
+        message_id = interaction.message.components[0].children[0].custom_id.split(':')[2]
+
+        msg = MessageModel.objects(pk=message_id).first()
+        comment = CommentModel(
+            id = interaction.id,
+            content = self.comment.value,
+            author_id = interaction.user.id,
+            author_name = interaction.user.name,
+            created_at = datetime.utcnow()
+        )
+        comment.save()
+        msg.comments.append(comment)
+        msg.save()
+
+        await interaction.response.send_message('Your comment has been added!', ephemeral=True)
+
+
+class AddCommentButton(DynamicItem[Button], template=r'comment:pending:([0-9]+)'):
+    def __init__(self, _id):
+        super().__init__(
+            Button(
+                label="Add Comment",
+                style=ButtonStyle.primary,
+                custom_id=f"comment:pending:{_id}"
+            )
+        )
+        self.id = _id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match,):
+        _id = int(match[1])
+        return cls(_id)
+    
+    async def callback(self, interaction):
+        await interaction.response.send_modal(Comment())
+
 def construct_pending_embed(msg):
     embed = message_to_embed(msg)
     embed.add_field(
@@ -126,4 +175,4 @@ def construct_pending_embed(msg):
     return embed
 
 def construct_pending_view(_id):
-    return construct_view(_id, [RequestPendingButton, CancelPendingButton])
+    return construct_view(_id, [RequestPendingButton, AddCommentButton, CancelPendingButton])
