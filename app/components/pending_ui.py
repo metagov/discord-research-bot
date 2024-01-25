@@ -120,8 +120,8 @@ class Comment(Modal, title="Add Comment"):
         label="Comment",
         style=TextStyle.long,
         placeholder="Write a comment here...",
-        required=False,
-        max_length=300
+        required=True,
+        max_length=500
     )
 
     async def on_submit(self, interaction):
@@ -142,6 +142,14 @@ class Comment(Modal, title="Add Comment"):
         msg.comments.append(comment)
         msg.save()
 
+        embed = interaction.message.embeds[0]
+        embed.insert_field_at(
+            index=len(embed.fields) - 1,
+            name=f"Comment by {interaction.user.name}",
+            value=self.comment.value,
+            inline=False
+        )
+        await interaction.message.edit(embed=embed)
         await interaction.response.send_message('Your comment has been added!', ephemeral=True)
 
 
@@ -166,12 +174,6 @@ class AddCommentButton(DynamicItem[Button], template=r'comment:pending:([0-9]+)'
 
 def construct_pending_embed(msg):
     embed = message_to_embed(msg)
-    embed.add_field(
-        name="Curated By",
-        value=msg.tagged_by_name,
-        inline=False
-    )
-
     return embed
 
 def construct_pending_view(_id):

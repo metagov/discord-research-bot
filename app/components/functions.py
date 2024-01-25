@@ -1,6 +1,7 @@
 import discord
 from discord.ui import View
-from models import SatelliteModel
+from models import SatelliteModel, MessageModel
+from datetime import timezone
 
 def construct_view(_id, items):
     view = View(timeout=None)
@@ -10,9 +11,13 @@ def construct_view(_id, items):
     return view
 
 def message_to_embed(message):
+    msg_model = MessageModel.objects(pk=message.id).first()
+
+    timestamp = (message.edited_at or message.created_at).replace(tzinfo=timezone.utc)
+
     embed = discord.Embed(
         description=message.content,
-        timestamp=message.edited_at or message.created_at
+        timestamp=timestamp
     )
 
     embed.set_author(
@@ -21,7 +26,7 @@ def message_to_embed(message):
         url=message.jump_url
     )
 
-    embed.set_footer(text=f"{message.guild_name} - #{message.channel_name}")
+    embed.set_footer(text=f"{message.guild_name} - #{message.channel_name} • Tagged by {msg_model.tagged_by_name}")
 
     return embed
 

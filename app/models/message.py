@@ -16,11 +16,13 @@ class MessageModel(Document):
     channel_name        = StringField()
     guild_id            = IntField()
     guild_name          = StringField()
+    content             = StringField()
+    attachments         = ListField(StringField(), default=list)
+
     author_id           = IntField()
     author_name         = StringField()
     author_avatar_url   = StringField()
-    content             = StringField()
-    attachments         = ListField(StringField(), default=list)
+    anonymous           = BooleanField()
 
     created_at          = DateTimeField()
     edited_at           = DateTimeField()
