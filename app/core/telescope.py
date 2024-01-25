@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from cogs import Admin, Curation
 from components import *
-from .settings import Settings
+from .settings import settings
 
 class TelescopeBot(commands.Bot):
     def __init__(self):
@@ -14,7 +14,7 @@ class TelescopeBot(commands.Bot):
             intents=intents
         )
 
-        self.settings = Settings()
+        self.settings = settings
 
         if not self.settings.observatory:
             print("Missing observatory guild id in settings.json")

@@ -6,7 +6,8 @@ from .functions import construct_view, message_to_embed, get_interface
 from .approved_ui import construct_approved_embed
 from core.responses import responses
 from models import MessageModel, UserModel, SatelliteModel, ConsentStatus, MessageStatus
-from datetime import datetime
+from core.settings import settings
+from datetime import datetime, timedelta
 
 
 class YesConsentButton(DynamicItem[Button], template=r'yes:consent:([0-9]+)'):
@@ -128,9 +129,14 @@ class RemoveConsentButton(DynamicItem[Button], template=r'remove:consent:([0-9]+
         msg = MessageModel.objects(pk=self.id).first()
             
         await interaction.message.edit(view=updated_view)
-        await interaction.response.send_message("You have removed this post from the dataset.")
 
-        await retract_message(msg, interaction.user, interaction.client)
+        success = await retract_message(msg, interaction.user, interaction.client)
+
+        if success:
+            await interaction.response.send_message("You have removed this post from the dataset.")
+        else:
+            await interaction.response.send_message("The review period for this message has passed, please contact researchers directly if you wish to exclude your message from the dataset.")
+
 
 def construct_consent_embed(msg):
     embed = message_to_embed(msg)
@@ -160,10 +166,8 @@ def construct_consent_embed(msg):
 
     return embed
 
-def construct_removal_embed(msg):
-    author = UserModel.objects(pk=msg.author_id).first()
-
-    opt_in_status = "You are currently opted-in" + "." if author.consent == ConsentStatus.YES else " anonymously."
+def construct_removal_embed(msg, anonymous):
+    opt_in_status = "You are currently opted-in" + "." if anonymous else " anonymously."
 
     embed = message_to_embed(msg)
     embed.add_field(
@@ -180,12 +184,17 @@ def construct_removal_view(_id):
     return construct_view(_id, [RemoveConsentButton])
 
 async def approve_message(msg, user, client):
+    user_model = UserModel.objects(pk=msg.author_id).first()
+    
     msg.status = MessageStatus.APPROVED
     msg.approved_at = datetime.utcnow()
+    # TODO: change to days
+    msg.locks_at = datetime.utcnow() + timedelta(seconds=settings.retraction_day_limit)
+    msg.anonymous = (user_model.consent == ConsentStatus.ANONYMOUS)
     msg.save()
 
     await user.send(
-        embed=construct_removal_embed(msg),
+        embed=construct_removal_embed(msg, msg.anonymous),
         view=construct_removal_view(msg.id)
     )
 
@@ -211,14 +220,19 @@ async def reject_message(msg, user, client):
     await interface.edit(view=updated_view)
 
 async def retract_message(msg, user, client):
-    msg.status = MessageStatus.RETRACTED
-    msg.retracted_at = datetime.utcnow()
-    msg.save()
+    if datetime.utcnow() < msg.locks_at:
+        msg.status = MessageStatus.RETRACTED
+        msg.retracted_at = datetime.utcnow()
+        msg.save()
 
-    interface = await get_interface(msg, client)
+        interface = await get_interface(msg, client)
 
-    updated_view = View.from_message(interface)
-    updated_view.children[0].label = "Retracted"
-    updated_view.children[0].style = ButtonStyle.danger
+        updated_view = View.from_message(interface)
+        updated_view.children[0].label = "Retracted"
+        updated_view.children[0].style = ButtonStyle.danger
 
-    await interface.edit(view=updated_view)
+        await interface.edit(view=updated_view)
+        return True
+    
+    else:
+        return False

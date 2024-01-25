@@ -43,5 +43,7 @@ class MessageModel(Document):
     rejected_at         = DateTimeField()
     retracted_at        = DateTimeField()
 
+    locks_at            = DateTimeField()
+
     comments            = ListField(ReferenceField(CommentModel))
 

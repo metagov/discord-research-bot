@@ -77,6 +77,7 @@ class RequestPendingButton(DynamicItem[Button], template=r'request:pending:([0-9
             
             except discord.errors.Forbidden as e:
                 await handle_forbidden(interaction, e)
+                return
 
             updated_view.children[0].label = "Pending"
             updated_view.children[0].style = ButtonStyle.secondary

@@ -6,7 +6,8 @@ class Settings:
     DEFAULT_SETTINGS = {
         "database": "telescope",
         "observatory": None,
-        "emoji": "🔭"
+        "emoji": "🔭",
+        "retraction_day_limit": 5
     }
 
     def __init__(self):
@@ -34,3 +35,5 @@ class Settings:
 
     def __exit__(self, type, value, traceback):
         self.save()
+
+settings = Settings()
